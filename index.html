@@ -1,0 +1,1216 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>App Store Net Proceeds Calculator</title>
+<meta name="description" content="See how much you actually earn from an App Store purchase in every country, after local taxes and Apple's commission.">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231f4fd8'/%3E%3Cpath d='M18 44V20h6l8 14 8-14h6v24h-6V31l-6 10h-4l-6-10v13z' fill='%23fff'/%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#f3f4f7; --surface:#ffffff; --surface-2:#f7f8fa; --line:#e2e5eb; --line-strong:#cdd2dc;
+  --text:#10141d; --muted:#586172; --faint:#8b93a2;
+  --accent:#1f4fd8; --accent-ink:#ffffff; --accent-soft:#e9efff;
+  --pos:#0b7a4b; --pos-soft:#e4f5ec;
+  --warn:#8a5200; --warn-soft:#fff3d9; --warn-line:#f0d49a;
+  --seg-tax:#e2a43a; --seg-fee:#8d97ab; --seg-you:#17a567;
+  --shadow:0 1px 2px rgba(16,20,29,.05), 0 8px 24px -12px rgba(16,20,29,.12);
+  --radius:14px;
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,"Helvetica Neue",Arial,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0b0d12; --surface:#13161d; --surface-2:#181c25; --line:#242934; --line-strong:#353c4b;
+    --text:#e9ecf2; --muted:#9ba4b4; --faint:#6b7485;
+    --accent:#7f9cff; --accent-ink:#0b0d12; --accent-soft:#1a2340;
+    --pos:#41d394; --pos-soft:#10281e;
+    --warn:#f1b755; --warn-soft:#2a2211; --warn-line:#4d3d18;
+    --seg-tax:#d39a3a; --seg-fee:#667089; --seg-you:#2fbf7f;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px -14px rgba(0,0,0,.7);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0b0d12; --surface:#13161d; --surface-2:#181c25; --line:#242934; --line-strong:#353c4b;
+  --text:#e9ecf2; --muted:#9ba4b4; --faint:#6b7485;
+  --accent:#7f9cff; --accent-ink:#0b0d12; --accent-soft:#1a2340;
+  --pos:#41d394; --pos-soft:#10281e;
+  --warn:#f1b755; --warn-soft:#2a2211; --warn-line:#4d3d18;
+  --seg-tax:#d39a3a; --seg-fee:#667089; --seg-you:#2fbf7f;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px -14px rgba(0,0,0,.7);
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 var(--font);-webkit-font-smoothing:antialiased}
+button,input,select{font:inherit;color:inherit}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+h1,h2,h3,p{margin:0}
+small{font-size:12px}
+.wrap{max-width:1280px;margin:0 auto;padding:20px 20px 64px}
+.num{font-variant-numeric:tabular-nums}
+
+/* header */
+.top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:8px 0 20px}
+.brand{display:flex;gap:12px;align-items:flex-start;min-width:0}
+.logo{flex:none;width:40px;height:40px;border-radius:11px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-weight:700;font-size:18px;letter-spacing:-.02em}
+h1{font-size:22px;line-height:1.2;letter-spacing:-.02em;font-weight:700;text-wrap:balance}
+.sub{color:var(--muted);margin-top:4px;font-size:14px;text-wrap:pretty}
+.iconbtn{flex:none;width:38px;height:38px;border-radius:10px;border:1px solid var(--line);background:var(--surface);display:grid;place-items:center;cursor:pointer}
+.iconbtn:hover{border-color:var(--line-strong)}
+.iconbtn svg{width:18px;height:18px}
+
+/* cards */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+.card-h{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 18px 0}
+.card-h h2{font-size:15px;font-weight:650;letter-spacing:-.01em}
+.card-b{padding:16px 18px 18px}
+.hint{color:var(--muted);font-size:12.5px;line-height:1.45;margin-top:8px;text-wrap:pretty}
+section{margin-top:16px}
+
+/* controls */
+.controls{display:grid;grid-template-columns:1fr 1fr 1.25fr;gap:0}
+.ctl{padding:18px;border-right:1px solid var(--line);min-width:0}
+.ctl:last-child{border-right:0}
+.lbl{display:block;font-size:11.5px;font-weight:650;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);margin-bottom:8px}
+.lbl + .lbl,.field + .lbl,.seg + .lbl,.row + .lbl,.hint + .lbl{margin-top:16px}
+.seg{display:inline-flex;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:3px;gap:2px;max-width:100%;flex-wrap:wrap}
+.seg button{border:0;background:transparent;padding:7px 12px;border-radius:7px;cursor:pointer;color:var(--muted);font-weight:550;white-space:nowrap}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--text);box-shadow:0 0 0 1px var(--line),0 1px 2px rgba(0,0,0,.08)}
+.field,select.field{width:100%;height:38px;border:1px solid var(--line-strong);border-radius:10px;background:var(--surface);padding:0 12px;min-width:0}
+select.field{appearance:none;-webkit-appearance:none;padding-right:32px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%238b93a2' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center}
+.field:focus-visible,.seg button:focus-visible,.btn:focus-visible,.iconbtn:focus-visible,.chip:focus-visible,tr:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.row{display:flex;gap:8px;align-items:center}
+.row > *{min-width:0}
+.check{display:flex;gap:9px;align-items:flex-start;cursor:pointer;color:var(--text);font-size:13px;line-height:1.35}
+.check input{margin:2px 0 0;width:15px;height:15px;accent-color:var(--accent);flex:none}
+.step{flex:none;width:38px;height:38px;border:1px solid var(--line-strong);border-radius:10px;background:var(--surface);cursor:pointer;font-size:17px;line-height:1}
+.step:hover{background:var(--surface-2)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.chip{border:1px solid var(--line-strong);background:var(--surface);border-radius:999px;padding:4px 10px;font-size:12.5px;cursor:pointer;font-variant-numeric:tabular-nums;display:inline-flex;align-items:center;gap:6px}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.chip .x{opacity:.6;font-size:14px;line-height:1}
+.chip:hover .x{opacity:1}
+[hidden]{display:none !important}
+
+/* summary */
+.summary{display:grid;grid-template-columns:1.15fr repeat(4,1fr);gap:12px}
+.stat{padding:14px 16px;min-width:0}
+.stat .k{font-size:11.5px;font-weight:650;letter-spacing:.06em;text-transform:uppercase;color:var(--faint)}
+.stat .v{font-size:25px;font-weight:700;letter-spacing:-.025em;margin-top:6px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stat .s{color:var(--muted);font-size:12.5px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stat.hero{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.stat.hero .k,.stat.hero .s{color:inherit;opacity:.8}
+
+/* notices */
+.notice{display:flex;gap:10px;align-items:flex-start;background:var(--warn-soft);border:1px solid var(--warn-line);color:var(--warn);border-radius:12px;padding:11px 14px;font-size:13px;line-height:1.45;margin-top:12px;text-wrap:pretty}
+.notice b{font-weight:650}
+.notice code,.prose code{font:12px var(--mono);background:rgba(127,127,127,.14);padding:1px 5px;border-radius:5px}
+.notice svg{flex:none;width:16px;height:16px;margin-top:2px}
+
+/* toolbar */
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:14px 18px;border-bottom:1px solid var(--line)}
+.toolbar .search{flex:1 1 220px;position:relative;min-width:0}
+.toolbar .search input{padding-left:34px}
+.toolbar .search svg{position:absolute;left:11px;top:11px;width:16px;height:16px;color:var(--faint)}
+.toolbar select.field{width:auto;flex:0 1 190px}
+.toolbar .grow{flex:1 1 auto}
+.filters{display:flex;flex-wrap:wrap;gap:8px 18px;padding:12px 18px;border-bottom:1px solid var(--line);align-items:center}
+.filters .count{margin-left:auto;color:var(--muted);font-size:12.5px}
+.btn{height:36px;padding:0 12px;border-radius:10px;border:1px solid var(--line-strong);background:var(--surface);cursor:pointer;font-weight:550;white-space:nowrap;display:inline-flex;align-items:center;gap:7px}
+.btn:hover{background:var(--surface-2)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.sm{height:30px;padding:0 10px;font-size:12.5px;border-radius:8px}
+.btn svg{width:15px;height:15px}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+
+/* table */
+.table-wrap{overflow:auto;max-height:min(74vh,780px);border-radius:0 0 var(--radius) var(--radius)}
+table{border-collapse:separate;border-spacing:0;width:100%}
+thead th{position:sticky;top:0;z-index:2;background:var(--surface-2);text-align:left;font-size:11.5px;font-weight:650;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);padding:0;border-bottom:1px solid var(--line);white-space:nowrap}
+thead th.r{text-align:right}
+thead th button{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:5px;width:100%;padding:10px 12px;cursor:pointer}
+thead th.r button{justify-content:flex-end}
+thead th button:hover{color:var(--text)}
+thead th button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+thead th .ar{opacity:0;font-size:10px}
+thead th[aria-sort] .ar{opacity:1;color:var(--accent)}
+thead th.plain{padding:10px 12px}
+tbody td{padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap;vertical-align:middle}
+tbody tr:last-child td{border-bottom:0}
+tbody tr{cursor:pointer}
+tbody tr:hover td{background:var(--surface-2)}
+td.r{text-align:right;font-variant-numeric:tabular-nums}
+td small{color:var(--faint);margin-left:6px;font-size:11.5px}
+.c-country{display:flex;align-items:center;gap:10px;min-width:210px}
+.c-country .pick{display:grid;place-items:center;width:22px;height:22px;flex:none;cursor:pointer}
+.c-country .pick input{width:15px;height:15px;accent-color:var(--accent);margin:0;cursor:pointer}
+.flag{font-size:19px;line-height:1;flex:none;width:24px;text-align:center}
+.nm{min-width:0;overflow:hidden;text-overflow:ellipsis;font-weight:550}
+.cur-m{display:none}
+.you{font-weight:650;color:var(--pos)}
+.na{color:var(--faint);font-style:italic}
+.pill{display:inline-block;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:550;background:var(--surface-2);border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.pill.tax{background:var(--warn-soft);border-color:var(--warn-line);color:var(--warn)}
+.pill.ok{background:var(--pos-soft);border-color:transparent;color:var(--pos)}
+.tag{display:inline-block;font-size:10.5px;font-weight:650;letter-spacing:.04em;text-transform:uppercase;border-radius:5px;padding:1px 5px;margin-left:6px;vertical-align:1px;background:var(--accent-soft);color:var(--accent)}
+.tag.warn{background:var(--warn-soft);color:var(--warn)}
+.empty{padding:36px 18px;text-align:center;color:var(--muted)}
+.mobile-only{display:none}
+
+/* comparison */
+.cmp-top{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.cmp-top .row{flex-wrap:wrap}
+.cmp-top select.field{width:auto;max-width:100%}
+.simple{width:100%}
+.simple th{position:static;background:transparent;padding:9px 12px;border-bottom:1px solid var(--line-strong)}
+.simple td{cursor:default}
+.simple tbody tr{cursor:default}
+.scroll-x{overflow-x:auto;margin:14px -18px -18px;border-top:1px solid var(--line)}
+
+/* estimate */
+.est{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.est-out{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:16px}
+.box{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:12px 14px;min-width:0}
+.box .k{font-size:12px;color:var(--muted)}
+.box .v{font-size:20px;font-weight:700;letter-spacing:-.02em;margin-top:4px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.box .s{font-size:12px;color:var(--faint);margin-top:2px}
+.box.pos .v{color:var(--pos)}
+
+/* prose */
+.prose{color:var(--muted);font-size:13.5px;line-height:1.6;max-width:92ch}
+.prose ul{margin:0;padding-left:18px}
+.prose li{margin:6px 0;text-wrap:pretty}
+.prose b,.prose strong{color:var(--text);font-weight:600}
+.two{display:grid;grid-template-columns:1.3fr 1fr;gap:16px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:13.5px}
+.kv dt{color:var(--muted)}
+.kv dd{margin:0;font-weight:600;font-variant-numeric:tabular-nums}
+.src{margin:12px 0 0;padding:0;list-style:none;font-size:12.5px;color:var(--muted)}
+.src li{padding:7px 0;border-top:1px solid var(--line);overflow-wrap:anywhere}
+footer{color:var(--faint);font-size:12px;margin-top:24px;text-align:center;text-wrap:pretty}
+
+/* detail sheet */
+.scrim{position:fixed;inset:0;background:rgba(8,10,16,.5);opacity:0;pointer-events:none;transition:opacity .2s;z-index:40}
+.scrim.open{opacity:1;pointer-events:auto}
+.sheet{position:fixed;top:0;right:0;bottom:0;width:min(450px,100%);background:var(--surface);border-left:1px solid var(--line);box-shadow:-20px 0 50px -30px rgba(0,0,0,.5);transform:translateX(102%);transition:transform .24s cubic-bezier(.2,.8,.2,1);z-index:50;overflow-y:auto;overscroll-behavior:contain;padding:18px 20px calc(24px + env(safe-area-inset-bottom));visibility:hidden}
+.sheet.open{transform:none;visibility:visible}
+.sheet-h{display:flex;align-items:center;justify-content:space-between;gap:12px;position:sticky;top:-18px;background:var(--surface);padding:18px 0 12px;margin-top:-18px;z-index:1}
+.sheet-h h3{font-size:19px;letter-spacing:-.02em;display:flex;align-items:center;gap:10px;min-width:0}
+.sheet-h h3 span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.big{font-size:32px;font-weight:700;letter-spacing:-.03em;color:var(--pos);font-variant-numeric:tabular-nums;line-height:1.1;overflow-wrap:anywhere}
+.big-s{color:var(--muted);margin-top:4px}
+.bar{display:flex;height:12px;border-radius:999px;overflow:hidden;margin:16px 0 8px;background:var(--surface-2)}
+.bar i{display:block;min-width:0}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--muted)}
+.legend span::before{content:"";display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;background:var(--c)}
+.dl{margin:16px 0 0;border-top:1px solid var(--line)}
+.dl div{display:flex;justify-content:space-between;gap:16px;padding:9px 0;border-bottom:1px solid var(--line)}
+.dl dt{color:var(--muted)}
+.dl dd{margin:0;text-align:right;font-weight:600;font-variant-numeric:tabular-nums}
+.dl .tot dd{color:var(--pos)}
+.why{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-top:16px}
+.why h4{margin:0 0 6px;font-size:13.5px}
+.why p{color:var(--muted);font-size:13px;line-height:1.5;text-wrap:pretty}
+.why p + p{margin-top:8px}
+.manual{margin-top:16px}
+.toast{position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom));transform:translate(-50%,20px);background:var(--text);color:var(--bg);padding:9px 14px;border-radius:10px;font-size:13px;font-weight:550;opacity:0;pointer-events:none;transition:.2s;z-index:60;max-width:calc(100% - 32px)}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+
+@media (max-width:1040px){
+  .controls{grid-template-columns:1fr 1fr}
+  .ctl:nth-child(2){border-right:0}
+  .ctl:nth-child(3){grid-column:1/-1;border-top:1px solid var(--line)}
+  .summary{grid-template-columns:repeat(4,1fr)}
+  .stat.hero{grid-column:1/-1}
+  .two{grid-template-columns:1fr}
+}
+@media (max-width:760px){
+  .wrap{padding:14px 16px 56px}
+  h1{font-size:19px}
+  .sub{font-size:13px}
+  .controls{grid-template-columns:1fr}
+  .ctl{border-right:0;border-top:1px solid var(--line);padding:16px}
+  .ctl:first-child{border-top:0}
+  .seg{display:flex}
+  .seg button{flex:1 1 auto;text-align:center}
+  .summary{grid-template-columns:1fr 1fr;gap:10px}
+  .stat .v{font-size:21px}
+  .toolbar,.filters{padding:12px 14px}
+  .toolbar select.field{flex:1 1 140px}
+  .filters .count{margin-left:0;width:100%}
+  .mobile-only{display:block}
+  .btns{width:100%}
+  .btns .btn{flex:1 1 auto;justify-content:center}
+  /* rows become cards */
+  .table-wrap{max-height:none;overflow:visible;padding:10px 12px 12px}
+  #grid thead{display:none}
+  #grid,#grid tbody{display:block}
+  #grid tr{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;padding:12px;border:1px solid var(--line);border-radius:12px;margin-bottom:8px;background:var(--surface)}
+  #grid tr:hover td{background:transparent}
+  #grid td{display:block;padding:0;border:0;white-space:normal;text-align:left}
+  #grid td.c-country{display:flex;grid-column:1/-1;min-width:0;padding-bottom:8px;border-bottom:1px solid var(--line)}
+  #grid td.c-cur{display:none}
+  #grid td[data-label]::before{content:attr(data-label);display:block;font-size:11px;color:var(--faint);margin-bottom:1px}
+  .cur-m{display:inline;color:var(--faint);font-weight:500;margin-left:6px;font-size:12px}
+  #grid td.r{font-size:14px}
+  .est,.est-out{grid-template-columns:1fr}
+  .card-h{padding:14px 14px 0}
+  .card-b{padding:14px}
+  .scroll-x{margin:14px -14px -14px}
+  .sheet{top:auto;left:0;width:100%;max-height:90dvh;border-left:0;border-top:1px solid var(--line);border-radius:18px 18px 0 0;transform:translateY(102%)}
+}
+@media (prefers-reduced-motion: reduce){ *{transition:none !important} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="brand">
+      <div class="logo" aria-hidden="true">$</div>
+      <div>
+        <h1>App Store Net Proceeds Calculator</h1>
+        <p class="sub">See how much you actually earn from an App Store purchase in every country.</p>
+      </div>
+    </div>
+    <button class="iconbtn" id="themeBtn" type="button" aria-label="Switch between light and dark theme" title="Light / dark">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9z"/></svg>
+    </button>
+  </header>
+
+  <!-- CONTROLS -->
+  <div class="card controls">
+    <div class="ctl">
+      <span class="lbl" id="lblModel">Pricing model</span>
+      <div class="seg" id="segModel" role="group" aria-labelledby="lblModel">
+        <button type="button" data-v="iap">In-App Purchase</button>
+        <button type="button" data-v="subscription">Subscription</button>
+      </div>
+      <div id="periodBox">
+        <label class="lbl" for="period" style="margin-top:16px">Subscription period</label>
+        <select class="field" id="period">
+          <option value="weekly">Weekly</option>
+          <option value="monthly">Monthly</option>
+          <option value="quarterly">3 months</option>
+          <option value="semiannual">6 months</option>
+          <option value="yearly">Yearly</option>
+        </select>
+      </div>
+      <p class="hint" id="modelHint"></p>
+    </div>
+
+    <div class="ctl">
+      <label class="lbl" for="commission">Apple commission</label>
+      <div class="row">
+        <select class="field" id="commission">
+          <option value="reduced">15%</option>
+          <option value="standard">30%</option>
+          <option value="custom">Custom</option>
+        </select>
+        <input class="field num" id="customRate" type="number" min="0" max="100" step="0.1" inputmode="decimal" aria-label="Custom commission in percent" style="max-width:110px" hidden>
+      </div>
+      <p class="hint">Apple's Small Business Program / qualifying subscriptions may use a 15% commission. Verify your actual App Store Connect agreement.</p>
+      <label class="check" style="margin-top:12px">
+        <input type="checkbox" id="regional">
+        <span>Apply Apple's regional rates <span id="regionalText" style="color:var(--muted)"></span></span>
+      </label>
+    </div>
+
+    <div class="ctl">
+      <span class="lbl" id="lblPrice">Price selection</span>
+      <div class="seg" id="segPrice" role="group" aria-labelledby="lblPrice">
+        <button type="button" data-v="tier">Apple pricing tier</button>
+        <button type="button" data-v="custom">Custom price</button>
+      </div>
+      <div id="tierBox" style="margin-top:12px">
+        <div class="row">
+          <button class="step" type="button" id="tierPrev" aria-label="Previous price point">−</button>
+          <select class="field num" id="tier" aria-label="Apple price point (US reference price)"></select>
+          <button class="step" type="button" id="tierNext" aria-label="Next price point">+</button>
+        </div>
+        <div class="chips" id="tierChips"></div>
+        <p class="hint" id="tierHint"></p>
+      </div>
+      <div id="customBox" style="margin-top:12px" hidden>
+        <div class="row">
+          <input class="field num" id="customAmount" type="number" min="0" step="0.01" inputmode="decimal" aria-label="Custom customer price">
+          <select class="field" id="customCurrency" aria-label="Currency" style="max-width:120px"></select>
+        </div>
+        <p class="hint">A custom price is one you set yourself in App Store Connect, so Apple does not generate localized prices for it. Proceeds are calculated for every storefront that sells in the chosen currency, each with its own tax treatment.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- SUMMARY -->
+  <section class="summary" id="summary" aria-label="Summary"></section>
+  <div id="notices"></div>
+
+  <!-- COUNTRY TABLE -->
+  <section class="card" aria-label="All storefronts">
+    <div class="toolbar">
+      <div class="search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+        <input class="field" id="q" type="search" placeholder="Search country or currency (e.g. Germany, SEK)" autocomplete="off" aria-label="Search country or currency">
+      </div>
+      <select class="field" id="region" aria-label="Region filter">
+        <option value="">All regions</option>
+        <option value="EU">European Union</option>
+        <option value="Europe">Europe (all)</option>
+        <option value="North America">North America</option>
+        <option value="South America">South America</option>
+        <option value="Asia">Asia</option>
+        <option value="Middle East">Middle East</option>
+        <option value="Africa">Africa</option>
+        <option value="Oceania">Oceania</option>
+      </select>
+      <select class="field mobile-only" id="sortSel" aria-label="Sort table">
+        <option value="name:1">Sort: Country A–Z</option>
+        <option value="usd:-1">Sort: Highest proceeds (USD)</option>
+        <option value="usd:1">Sort: Lowest proceeds (USD)</option>
+        <option value="price:-1">Sort: Highest customer price</option>
+        <option value="tax:-1">Sort: Highest tax</option>
+        <option value="currency:1">Sort: Currency</option>
+      </select>
+      <div class="btns">
+        <button class="btn" type="button" id="btnCsv"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m0 0l-4-4m4 4l4-4M5 20h14"/></svg>Export CSV</button>
+        <button class="btn" type="button" id="btnCopy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>Copy table</button>
+        <button class="btn" type="button" id="btnJson"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m0 0l-4-4m4 4l4-4M5 20h14"/></svg>Download JSON</button>
+      </div>
+    </div>
+    <div class="filters">
+      <label class="check"><input type="checkbox" id="fDiff"><span>Show only countries where price differs from base currency</span></label>
+      <label class="check"><input type="checkbox" id="fTax"><span>Show only countries with taxes included in customer price</span></label>
+      <span class="count" id="count"></span>
+    </div>
+    <div class="table-wrap">
+      <table id="grid">
+        <thead>
+          <tr>
+            <th data-k="name"><button type="button">Country <span class="ar"></span></button></th>
+            <th data-k="currency"><button type="button">Currency <span class="ar"></span></button></th>
+            <th class="r" data-k="price"><button type="button">Customer price <span class="ar"></span></button></th>
+            <th data-k="tax"><button type="button">Tax included <span class="ar"></span></button></th>
+            <th class="r" data-k="net"><button type="button">Tax-exclusive price <span class="ar"></span></button></th>
+            <th class="r" data-k="fee"><button type="button">Apple commission <span class="ar"></span></button></th>
+            <th class="r" data-k="proceeds"><button type="button">Developer proceeds <span class="ar"></span></button></th>
+            <th class="r" data-k="usd"><button type="button">Developer proceeds USD <span class="ar"></span></button></th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+      <div class="empty" id="empty" hidden>No storefronts match these filters.</div>
+    </div>
+  </section>
+
+  <!-- COMPARISON -->
+  <section class="card" aria-label="Multi-country comparison">
+    <div class="card-b">
+      <div class="cmp-top">
+        <div>
+          <h2 style="font-size:15px;font-weight:650">Multi-country comparison</h2>
+          <p class="hint" style="margin-top:2px">Tick countries in the table above, or add them here.</p>
+        </div>
+        <div class="row">
+          <select class="field" id="cmpAdd" aria-label="Add a country to the comparison"></select>
+          <select class="field" id="cmpSort" aria-label="Sort comparison">
+            <option value="high">Highest developer proceeds</option>
+            <option value="low">Lowest developer proceeds</option>
+            <option value="price">Highest customer price</option>
+            <option value="currency">Currency</option>
+            <option value="name">Country name</option>
+          </select>
+        </div>
+      </div>
+      <div class="chips" id="cmpChips"></div>
+      <div class="scroll-x">
+        <table class="simple">
+          <thead><tr>
+            <th>Country</th><th class="r">App Store price</th><th class="r">Tax</th><th class="r">Apple fee</th><th class="r">You receive</th><th class="r">USD</th>
+          </tr></thead>
+          <tbody id="cmpRows"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ANNUAL ESTIMATE -->
+  <section class="card" id="estCard" aria-label="Estimated annual developer revenue">
+    <div class="card-h"><h2>Estimated annual developer revenue <span class="tag warn">Estimate</span></h2></div>
+    <div class="card-b">
+      <div class="est">
+        <div><label class="lbl" for="estSf">Storefront</label><select class="field" id="estSf"></select></div>
+        <div><label class="lbl" for="estPay">Renewals (payments counted)</label><input class="field num" id="estPay" type="number" min="0" step="1" inputmode="numeric"></div>
+        <div><label class="lbl" for="estRef">Refund rate %</label><input class="field num" id="estRef" type="number" min="0" max="100" step="0.1" inputmode="decimal"></div>
+      </div>
+      <div class="est-out" id="estOut"></div>
+      <p class="hint" id="estHint"></p>
+    </div>
+  </section>
+
+  <!-- ABOUT + DATA -->
+  <section class="two">
+    <div class="card">
+      <div class="card-h"><h2>About the calculation</h2></div>
+      <div class="card-b prose">
+        <ul>
+          <li><b>Apple uses storefront-specific pricing.</b> When you pick a price for a base storefront, Apple generates an equalized price for each of the other storefronts using exchange rates, local taxes and local pricing conventions (for example €44.99 or ¥6,000). This tool shows those Apple prices and never converts the US price with an exchange rate.</li>
+          <li><b>Customer prices can include taxes.</b> In most storefronts outside the United States and Canada the price a customer sees already contains VAT, GST or a similar tax. Apple removes that tax first and remits it; it is never part of your revenue.</li>
+          <li><b>Taxes are treated differently across countries.</b> In the United States and Canada sales tax is calculated at checkout and added on top of the price. Some storefronts have no tax deducted at all, and a few (for example the United Kingdom, Italy, Spain, Kenya) carry an additional levy tied to Apple's commission.</li>
+          <li><b>The commission depends on your agreement and the storefront.</b> The standard rate is 30% and the reduced rate is 15% (App Store Small Business Program, and auto-renewable subscriptions after a subscriber's first year). <span id="aboutRegional"></span></li>
+          <li><b>Developer proceeds are not Customer Price × 85%.</b> The formula is: customer price → remove included tax → tax-exclusive amount → minus Apple's commission on that amount → developer proceeds. For Germany at 19% VAT and 15% commission that is about 71% of the customer price.</li>
+          <li><b>Apple's Financial Reports are the authority.</b> Settled amounts depend on the exact transaction: your tax category, where your business is based, refunds, withholding taxes and Apple's own settlement exchange rate.</li>
+          <li><b>This calculator is an estimate.</b> It reproduces the per-unit proceeds App Store Connect reports for a price point, but it is not your financial-report data for a specific transaction.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-h"><h2>Data source / last updated</h2></div>
+      <div class="card-b">
+        <dl class="kv" id="dataKv"></dl>
+        <p class="hint" id="dataNote"></p>
+        <ul class="src" id="dataSrc"></ul>
+      </div>
+    </div>
+  </section>
+
+  <footer>Not affiliated with Apple Inc. App Store is a trademark of Apple Inc. Figures are estimates for planning, not accounting or tax advice.</footer>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<aside class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle" tabindex="-1"></aside>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<!-- ============================================================
+     DATA. Each block below is plain JSON and is the only place the
+     numbers live. scripts/fetch-apple-prices.mjs rewrites
+     #data-storefronts and #data-prices from the App Store Connect API.
+     ============================================================ -->
+<script type="application/json" id="data-storefronts">[{"a3":"AFG","a2":"AF","name":"Afghanistan","region":"Asia","eu":false,"currency":"USD","decimals":2},{"a3":"ALB","a2":"AL","name":"Albania","region":"Europe","eu":false,"currency":"USD","decimals":2},{"a3":"DZA","a2":"DZ","name":"Algeria","region":"Africa","eu":false,"currency":"USD","decimals":2},{"a3":"AGO","a2":"AO","name":"Angola","region":"Africa","eu":false,"currency":"USD","decimals":2},{"a3":"AIA","a2":"AI","name":"Anguilla","region":"North America","eu":false,"currency":"USD","decimals":2},{"a3":"ATG","a2":"AG","name":"Antigua and Barbuda","region":"North America","eu":false,"currency":"USD","decimals":2},{"a3":"ARG","a2":"AR","name":"Argentina","region":"South America","eu":false,"currency":"USD","decimals":2},{"a3":"ARM","a2":"AM","name":"Armenia","region":"Asia","eu":false,"currency":"USD","decimals":2},{"a3":"AUS","a2":"AU","name":"Australia","region":"Oceania","eu":false,"currency":"AUD","decimals":2},{"a3":"AUT","a2":"AT","name":"Austria","region":"Europe","eu":true,"currency":"EUR","decimals":2},{"a3":"AZE","a2":"AZ","name":"Azerbaijan","region":"Asia","eu":false,"currency":"USD","decimals":2},{"a3":"BHS","a2":"BS","name":"Bahamas","region":"North America","eu":false,"currency":"USD","decimals":2},{"a3":"BHR","a2":"BH","name":"Bahrain","region":"Middle East","eu":false,"currency":"USD","decimals":2},{"a3":"BRB","a2":"BB","name":"Barbados","region":"North America","eu":false,"currency":"USD","decimals":2},{"a3":"BLR","a2":"BY","name":"Belarus","region":"Europe","eu":false,"currency":"USD","decimals":2},{"a3":"BEL","a2":"BE","name":"Belgium","region":"Europe","eu":true,"currency":"EUR","decimals":2},{"a3":"BLZ","a2":"BZ","name":"Belize","region":"North America","eu":false,"currency":"USD","decimals":2},{"a3":"BEN","a2":"BJ","name":"Benin","region":"Africa","eu":false,"currency":"USD","decimals":2},{"a3":"BMU","a2":"BM","name":"Bermuda","region":"North America","eu":false,"currency":"USD","decimals":2},{"a3":"BTN","a2":"BT","name":"Bhutan","region":"Asia","eu":false,"currency":"USD","decimals":2},{"a3":"BOL","a2":"BO","name":"Bolivia","region":"South America","eu":false,"currency":"USD","decimals":2},{"a3":"BIH","a2":"BA","name":"Bosnia and Herzegovina","region":"Europe","eu":false,"currency":"EUR","decimals":2},{"a3":"BWA","a2":"BW","name":"Botswana","region":"Africa","eu":false,"currency":"USD","decimals":2},{"a3":"BRA","a2":"BR","name":"Brazil","region":"South America","eu":false,"currency":"BRL","decimals":2},{"a3":"VGB","a2":"VG","name":"British Virgin Islands","region":"North America","eu":false,"currency":"USD","decimals":2},{"a3":"BRN","a2":"BN","name":"Brunei","region":"Asia","eu":false,"currency":"USD","decimals":2},{"a3":"BGR","a2":"BG","name":"Bulgaria","region":"Europe","eu":true,"currency":"EUR","decimals":2},{"a3":"BFA","a2":"BF","name":"Burkina Faso","region":"Africa","eu":false,"currency":"USD","decimals":2},{"a3":"CPV","a2":"CV","name":"Cabo Verde","region":"Africa","eu":false,"currency":"USD","decimals":2},{"a3":"KHM","a2":"KH","name":"Cambodia","region":"Asia","eu":false,"currency":"USD","decimals":2},{"a3":"CMR","a2":"CM","name":"Cameroon","region":"Africa","eu":false,"currency":"USD","decimals":2},{"a3":"CAN","a2":"CA","name":"Canada","region":"North America","eu":false,"currency":"CAD","decimals":2},{"a3":"CYM","a2":"KY","name":"Cayman Islands","region":"North America","eu":false,"currency":"USD","decimals":2},{"a3":"TCD","a2":"TD","name":"Chad","region":"Africa","eu":false,"currency":"USD","decimals":2},{"a3":"CHL","a2":"CL","name":"Chile","region":"South America","eu":false,"currency":"CLP","decimals":0},{"a3":"CHN","a2":"CN","name":"China mainland","region":"Asia","eu":false,"currency":"CNY","decimals":2},{"a3":"COL","a2":"CO","name":"Colombia","region":"South America","eu":false,"currency":"COP","decimals":2},{"a3":"COD","a2":"CD","name":"Congo, Democratic Republic of the","region":"Africa","eu":false,"currency":"USD","decimals":2},{"a3":"COG","a2":"CG","name":"Congo, Republic of the","region":"Africa","eu":false,"currency":"USD","decimals":2},{"a3":"CRI","a2":"CR","name":"Costa Rica","region":"North America","eu":false,"currency":"USD","decimals":2},{"a3":"HRV","a2":"HR","name":"Croatia","region":"Europe","eu":true,"currency":"EUR","decimals":2},{"a3":"CYP","a2":"CY","name":"Cyprus","region":"Europe","eu":true,"currency":"EUR","decimals":2},{"a3":"CZE","a2":"CZ","name":"Czechia","region":"Europe","eu":true,"currency":"CZK","decimals":2},{"a3":"CIV","a2":"CI","name":"Côte d’Ivoire","region":"Africa","eu":false,"currency":"USD","decimals":2},{"a3":"DNK","a2":"DK","name":"Denmark","region":"Europe","eu":true,"currency":"DKK","decimals":2},{"a3":"DMA","a2":"DM","name":"Dominica","region":"North America","eu":false,"currency":"USD","decimals":2},{"a3":"DOM","a2":"DO","name":"Dominican Republic","region":"North America","eu":false,"currency":"USD","decimals":2},{"a3":"ECU","a2":"EC","name":"Ecuador","region":"South America","eu":false,"currency":"USD","decimals":2},{"a3":"EGY","a2":"EG","name":"Egypt","region":"Africa","eu":false,"currency":"EGP","decimals":2},{"a3":"SLV","a2":"SV","name":"El Salvador","region":"North America","eu":false,"currency":"USD","decimals":2},{"a3":"EST","a2":"EE","name":"Estonia","region":"Europe","eu":true,"currency":"EUR","decimals":2},{"a3":"SWZ","a2":"SZ","name":"Eswatini","region":"Africa","eu":false,"currency":"USD","decimals":2},{"a3":"FJI","a2":"FJ","name":"Fiji","region":"Oceania","eu":false,"currency":"USD","decimals":2},{"a3":"FIN","a2":"FI","name":"Finland","region":"Europe","eu":true,"currency":"EUR","decimals":2},{"a3":"FRA","a2":"FR","name":"France","region":"Europe","eu":true,"currency":"EUR","decimals":2},{"a3":"GAB","a2":"GA","name":"Gabon","region":"Africa","eu":false,"currency":"USD","decimals":2},{"a3":"GMB","a2":"GM","name":"Gambia","region":"Africa","eu":false,"currency":"USD","decimals":2},{"a3":"GEO","a2":"GE","name":"Georgia","region":"Asia","eu":false,"currency":"USD","decimals":2},{"a3":"DEU","a2":"DE","name":"Germany","region":"Europe","eu":true,"currency":"EUR","decimals":2},{"a3":"GHA","a2":"GH","name":"Ghana","region":"Africa","eu":false,"currency":"USD","decimals":2},{"a3":"GRC","a2":"GR","name":"Greece","region":"Europe","eu":true,"currency":"EUR","decimals":2},{"a3":"GRD","a2":"GD","name":"Grenada","region":"North America","eu":false,"currency":"USD","decimals":2},{"a3":"GTM","a2":"GT","name":"Guatemala","region":"North America","eu":false,"currency":"USD","decimals":2},{"a3":"GNB","a2":"GW","name":"Guinea-Bissau","region":"Africa","eu":false,"currency":"USD","decimals":2},{"a3":"GUY","a2":"GY","name":"Guyana","region":"South America","eu":false,"currency":"USD","decimals":2},{"a3":"HND","a2":"HN","name":"Honduras","region":"North America","eu":false,"currency":"USD","decimals":2},{"a3":"HKG","a2":"HK","name":"Hong Kong","region":"Asia","eu":false,"currency":"HKD","decimals":2},{"a3":"HUN","a2":"HU","name":"Hungary","region":"Europe","eu":true,"currency":"HUF","decimals":0},{"a3":"ISL","a2":"IS","name":"Iceland","region":"Europe","eu":false,"currency":"USD","decimals":2},{"a3":"IND","a2":"IN","name":"India","region":"Asia","eu":false,"currency":"INR","decimals":2},{"a3":"IDN","a2":"ID","name":"Indonesia","region":"Asia","eu":false,"currency":"IDR","decimals":0},{"a3":"IRQ","a2":"IQ","name":"Iraq","region":"Middle East","eu":false,"currency":"USD","decimals":2},{"a3":"IRL","a2":"IE","name":"Ireland","region":"Europe","eu":true,"currency":"EUR","decimals":2},{"a3":"ISR","a2":"IL","name":"Israel","region":"Middle East","eu":false,"currency":"ILS","decimals":2},{"a3":"ITA","a2":"IT","name":"Italy","region":"Europe","eu":true,"currency":"EUR","decimals":2},{"a3":"JAM","a2":"JM","name":"Jamaica","region":"North America","eu":false,"currency":"USD","decimals":2},{"a3":"JPN","a2":"JP","name":"Japan","region":"Asia","eu":false,"currency":"JPY","decimals":0},{"a3":"JOR","a2":"JO","name":"Jordan","region":"Middle East","eu":false,"currency":"USD","decimals":2},{"a3":"KAZ","a2":"KZ","name":"Kazakhstan","region":"Asia","eu":false,"currency":"KZT","decimals":2},{"a3":"KEN","a2":"KE","name":"Kenya","region":"Africa","eu":false,"currency":"USD","decimals":2},{"a3":"XKS","a2":"XK","name":"Kosovo","region":"Europe","eu":false,"currency":"EUR","decimals":2},{"a3":"KWT","a2":"KW","name":"Kuwait","region":"Middle East","eu":false,"currency":"USD","decimals":2},{"a3":"KGZ","a2":"KG","name":"Kyrgyzstan","region":"Asia","eu":false,"currency":"USD","decimals":2},{"a3":"LAO","a2":"LA","name":"Laos","region":"Asia","eu":false,"currency":"USD","decimals":2},{"a3":"LVA","a2":"LV","name":"Latvia","region":"Europe","eu":true,"currency":"EUR","decimals":2},{"a3":"LBN","a2":"LB","name":"Lebanon","region":"Middle East","eu":false,"currency":"USD","decimals":2},{"a3":"LBR","a2":"LR","name":"Liberia","region":"Africa","eu":false,"currency":"USD","decimals":2},{"a3":"LBY","a2":"LY","name":"Libya","region":"Africa","eu":false,"currency":"USD","decimals":2},{"a3":"LTU","a2":"LT","name":"Lithuania","region":"Europe","eu":true,"currency":"EUR","decimals":2},{"a3":"LUX","a2":"LU","name":"Luxembourg","region":"Europe","eu":true,"currency":"EUR","decimals":2},{"a3":"MAC","a2":"MO","name":"Macao","region":"Asia","eu":false,"currency":"USD","decimals":2},{"a3":"MDG","a2":"MG","name":"Madagascar","region":"Africa","eu":false,"currency":"USD","decimals":2},{"a3":"MWI","a2":"MW","name":"Malawi","region":"Africa","eu":false,"currency":"USD","decimals":2},{"a3":"MYS","a2":"MY","name":"Malaysia","region":"Asia","eu":false,"currency":"MYR","decimals":2},{"a3":"MDV","a2":"MV","name":"Maldives","region":"Asia","eu":false,"currency":"USD","decimals":2},{"a3":"MLI","a2":"ML","name":"Mali","region":"Africa","eu":false,"currency":"USD","decimals":2},{"a3":"MLT","a2":"MT","name":"Malta","region":"Europe","eu":true,"currency":"EUR","decimals":2},{"a3":"MRT","a2":"MR","name":"Mauritania","region":"Africa","eu":false,"currency":"USD","decimals":2},{"a3":"MUS","a2":"MU","name":"Mauritius","region":"Africa","eu":false,"currency":"USD","decimals":2},{"a3":"MEX","a2":"MX","name":"Mexico","region":"North America","eu":false,"currency":"MXN","decimals":2},{"a3":"FSM","a2":"FM","name":"Micronesia","region":"Oceania","eu":false,"currency":"USD","decimals":2},{"a3":"MDA","a2":"MD","name":"Moldova","region":"Europe","eu":false,"currency":"USD","decimals":2},{"a3":"MNG","a2":"MN","name":"Mongolia","region":"Asia","eu":false,"currency":"USD","decimals":2},{"a3":"MNE","a2":"ME","name":"Montenegro","region":"Europe","eu":false,"currency":"EUR","decimals":2},{"a3":"MSR","a2":"MS","name":"Montserrat","region":"North America","eu":false,"currency":"USD","decimals":2},{"a3":"MAR","a2":"MA","name":"Morocco","region":"Africa","eu":false,"currency":"USD","decimals":2},{"a3":"MOZ","a2":"MZ","name":"Mozambique","region":"Africa","eu":false,"currency":"USD","decimals":2},{"a3":"MMR","a2":"MM","name":"Myanmar","region":"Asia","eu":false,"currency":"USD","decimals":2},{"a3":"NAM","a2":"NA","name":"Namibia","region":"Africa","eu":false,"currency":"USD","decimals":2},{"a3":"NRU","a2":"NR","name":"Nauru","region":"Oceania","eu":false,"currency":"USD","decimals":2},{"a3":"NPL","a2":"NP","name":"Nepal","region":"Asia","eu":false,"currency":"USD","decimals":2},{"a3":"NLD","a2":"NL","name":"Netherlands","region":"Europe","eu":true,"currency":"EUR","decimals":2},{"a3":"NZL","a2":"NZ","name":"New Zealand","region":"Oceania","eu":false,"currency":"NZD","decimals":2},{"a3":"NIC","a2":"NI","name":"Nicaragua","region":"North America","eu":false,"currency":"USD","decimals":2},{"a3":"NER","a2":"NE","name":"Niger","region":"Africa","eu":false,"currency":"USD","decimals":2},{"a3":"NGA","a2":"NG","name":"Nigeria","region":"Africa","eu":false,"currency":"NGN","decimals":2},{"a3":"MKD","a2":"MK","name":"North Macedonia","region":"Europe","eu":false,"currency":"USD","decimals":2},{"a3":"NOR","a2":"NO","name":"Norway","region":"Europe","eu":false,"currency":"NOK","decimals":2},{"a3":"OMN","a2":"OM","name":"Oman","region":"Middle East","eu":false,"currency":"USD","decimals":2},{"a3":"PAK","a2":"PK","name":"Pakistan","region":"Asia","eu":false,"currency":"PKR","decimals":2},{"a3":"PLW","a2":"PW","name":"Palau","region":"Oceania","eu":false,"currency":"USD","decimals":2},{"a3":"PAN","a2":"PA","name":"Panama","region":"North America","eu":false,"currency":"USD","decimals":2},{"a3":"PNG","a2":"PG","name":"Papua New Guinea","region":"Oceania","eu":false,"currency":"USD","decimals":2},{"a3":"PRY","a2":"PY","name":"Paraguay","region":"South America","eu":false,"currency":"USD","decimals":2},{"a3":"PER","a2":"PE","name":"Peru","region":"South America","eu":false,"currency":"PEN","decimals":2},{"a3":"PHL","a2":"PH","name":"Philippines","region":"Asia","eu":false,"currency":"PHP","decimals":2},{"a3":"POL","a2":"PL","name":"Poland","region":"Europe","eu":true,"currency":"PLN","decimals":2},{"a3":"PRT","a2":"PT","name":"Portugal","region":"Europe","eu":true,"currency":"EUR","decimals":2},{"a3":"QAT","a2":"QA","name":"Qatar","region":"Middle East","eu":false,"currency":"QAR","decimals":2},{"a3":"ROU","a2":"RO","name":"Romania","region":"Europe","eu":true,"currency":"RON","decimals":2},{"a3":"RUS","a2":"RU","name":"Russia","region":"Europe","eu":false,"currency":"RUB","decimals":2},{"a3":"RWA","a2":"RW","name":"Rwanda","region":"Africa","eu":false,"currency":"USD","decimals":2},{"a3":"SAU","a2":"SA","name":"Saudi Arabia","region":"Middle East","eu":false,"currency":"SAR","decimals":2},{"a3":"SEN","a2":"SN","name":"Senegal","region":"Africa","eu":false,"currency":"USD","decimals":2},{"a3":"SRB","a2":"RS","name":"Serbia","region":"Europe","eu":false,"currency":"EUR","decimals":2},{"a3":"SYC","a2":"SC","name":"Seychelles","region":"Africa","eu":false,"currency":"USD","decimals":2},{"a3":"SLE","a2":"SL","name":"Sierra Leone","region":"Africa","eu":false,"currency":"USD","decimals":2},{"a3":"SGP","a2":"SG","name":"Singapore","region":"Asia","eu":false,"currency":"SGD","decimals":2},{"a3":"SVK","a2":"SK","name":"Slovakia","region":"Europe","eu":true,"currency":"EUR","decimals":2},{"a3":"SVN","a2":"SI","name":"Slovenia","region":"Europe","eu":true,"currency":"EUR","decimals":2},{"a3":"SLB","a2":"SB","name":"Solomon Islands","region":"Oceania","eu":false,"currency":"USD","decimals":2},{"a3":"ZAF","a2":"ZA","name":"South Africa","region":"Africa","eu":false,"currency":"ZAR","decimals":2},{"a3":"KOR","a2":"KR","name":"South Korea","region":"Asia","eu":false,"currency":"KRW","decimals":0},{"a3":"ESP","a2":"ES","name":"Spain","region":"Europe","eu":true,"currency":"EUR","decimals":2},{"a3":"LKA","a2":"LK","name":"Sri Lanka","region":"Asia","eu":false,"currency":"USD","decimals":2},{"a3":"KNA","a2":"KN","name":"St. Kitts and Nevis","region":"North America","eu":false,"currency":"USD","decimals":2},{"a3":"LCA","a2":"LC","name":"St. Lucia","region":"North America","eu":false,"currency":"USD","decimals":2},{"a3":"VCT","a2":"VC","name":"St. Vincent and the Grenadines","region":"North America","eu":false,"currency":"USD","decimals":2},{"a3":"SUR","a2":"SR","name":"Suriname","region":"South America","eu":false,"currency":"USD","decimals":2},{"a3":"SWE","a2":"SE","name":"Sweden","region":"Europe","eu":true,"currency":"SEK","decimals":2},{"a3":"CHE","a2":"CH","name":"Switzerland","region":"Europe","eu":false,"currency":"CHF","decimals":2},{"a3":"STP","a2":"ST","name":"São Tomé and Príncipe","region":"Africa","eu":false,"currency":"USD","decimals":2},{"a3":"TWN","a2":"TW","name":"Taiwan","region":"Asia","eu":false,"currency":"TWD","decimals":0},{"a3":"TJK","a2":"TJ","name":"Tajikistan","region":"Asia","eu":false,"currency":"USD","decimals":2},{"a3":"TZA","a2":"TZ","name":"Tanzania","region":"Africa","eu":false,"currency":"TZS","decimals":2},{"a3":"THA","a2":"TH","name":"Thailand","region":"Asia","eu":false,"currency":"THB","decimals":2},{"a3":"TON","a2":"TO","name":"Tonga","region":"Oceania","eu":false,"currency":"USD","decimals":2},{"a3":"TTO","a2":"TT","name":"Trinidad and Tobago","region":"North America","eu":false,"currency":"USD","decimals":2},{"a3":"TUN","a2":"TN","name":"Tunisia","region":"Africa","eu":false,"currency":"USD","decimals":2},{"a3":"TKM","a2":"TM","name":"Turkmenistan","region":"Asia","eu":false,"currency":"USD","decimals":2},{"a3":"TCA","a2":"TC","name":"Turks and Caicos Islands","region":"North America","eu":false,"currency":"USD","decimals":2},{"a3":"TUR","a2":"TR","name":"Türkiye","region":"Middle East","eu":false,"currency":"TRY","decimals":2},{"a3":"UGA","a2":"UG","name":"Uganda","region":"Africa","eu":false,"currency":"USD","decimals":2},{"a3":"UKR","a2":"UA","name":"Ukraine","region":"Europe","eu":false,"currency":"USD","decimals":2},{"a3":"ARE","a2":"AE","name":"United Arab Emirates","region":"Middle East","eu":false,"currency":"AED","decimals":2},{"a3":"GBR","a2":"GB","name":"United Kingdom","region":"Europe","eu":false,"currency":"GBP","decimals":2},{"a3":"USA","a2":"US","name":"United States","region":"North America","eu":false,"currency":"USD","decimals":2},{"a3":"URY","a2":"UY","name":"Uruguay","region":"South America","eu":false,"currency":"USD","decimals":2},{"a3":"UZB","a2":"UZ","name":"Uzbekistan","region":"Asia","eu":false,"currency":"USD","decimals":2},{"a3":"VUT","a2":"VU","name":"Vanuatu","region":"Oceania","eu":false,"currency":"USD","decimals":2},{"a3":"VEN","a2":"VE","name":"Venezuela","region":"South America","eu":false,"currency":"USD","decimals":2},{"a3":"VNM","a2":"VN","name":"Vietnam","region":"Asia","eu":false,"currency":"VND","decimals":0},{"a3":"YEM","a2":"YE","name":"Yemen","region":"Middle East","eu":false,"currency":"USD","decimals":2},{"a3":"ZMB","a2":"ZM","name":"Zambia","region":"Africa","eu":false,"currency":"USD","decimals":2},{"a3":"ZWE","a2":"ZW","name":"Zimbabwe","region":"Africa","eu":false,"currency":"USD","decimals":2}]</script>
+<script type="application/json" id="data-prices">{"meta":{"updated":"2026-08-25","kind":"public-snapshot","note":"Embedded prices are Apple's own equalization output for 5 US price points, taken from App Store Connect API responses that other developers published publicly. They were not retrieved live or from your account."},"order":["AFG","AGO","AIA","ALB","ARE","ARG","ARM","ATG","AUS","AUT","AZE","BEL","BEN","BFA","BGR","BHR","BHS","BIH","BLR","BLZ","BMU","BOL","BRA","BRB","BRN","BTN","BWA","CAN","CHE","CHL","CHN","CIV","CMR","COD","COG","COL","CPV","CRI","CYM","CYP","CZE","DEU","DMA","DNK","DOM","DZA","ECU","EGY","ESP","EST","FIN","FJI","FRA","FSM","GAB","GBR","GEO","GHA","GMB","GNB","GRC","GRD","GTM","GUY","HKG","HND","HRV","HUN","IDN","IND","IRL","IRQ","ISL","ISR","ITA","JAM","JOR","JPN","KAZ","KEN","KGZ","KHM","KNA","KOR","KWT","LAO","LBN","LBR","LBY","LCA","LKA","LTU","LUX","LVA","MAC","MAR","MDA","MDG","MDV","MEX","MKD","MLI","MLT","MMR","MNE","MNG","MOZ","MRT","MSR","MUS","MWI","MYS","NAM","NER","NGA","NIC","NLD","NOR","NPL","NRU","NZL","OMN","PAK","PAN","PER","PHL","PLW","PNG","POL","PRT","PRY","QAT","ROU","RUS","RWA","SAU","SEN","SGP","SLB","SLE","SLV","SRB","STP","SUR","SVK","SVN","SWE","SWZ","SYC","TCA","TCD","THA","TJK","TKM","TON","TTO","TUN","TUR","TWN","TZA","UGA","UKR","URY","USA","UZB","VCT","VEN","VGB","VNM","VUT","XKS","YEM","ZAF","ZMB","ZWE"],"sources":[{"label":"App Store Connect API responses (US subscription price points and equalizations for $9.99 and $29.99) published in the public GitHub repository moltcorporation/verbsy","url":"https://github.com/moltcorporation/verbsy/tree/main/.asc","asOf":"2026-06-17"},{"label":"App Store Connect subscription price-point exports ($3.99, $5.99, $39.99) published in the public GitHub repository orangutanger1/glovebox","url":"https://github.com/orangutanger1/glovebox/tree/main/store/pricing","asOf":"2026-08-25"}],"priceUpdates":[{"date":"2026-09-14","storefronts":["COG","IDN","ISR","MAR"],"url":"https://developer.apple.com/news/?id=artln8br"}],"subscription":{"tiers":["0.29","0.39","0.49","0.59","0.69","0.79","0.89","0.90","0.95","0.99","1.00","1.09","1.19","1.29","1.39","1.49","1.59","1.69","1.79","1.89","1.90","1.95","1.99","2.00","2.09","2.19","2.29","2.39","2.49","2.59","2.69","2.79","2.89","2.90","2.95","2.99","3.00","3.09","3.19","3.29","3.39","3.49","3.59","3.69","3.79","3.89","3.90","3.95","3.99","4.00","4.09","4.19","4.29","4.39","4.49","4.59","4.69","4.79","4.89","4.90","4.95","4.99","5.00","5.09","5.19","5.29","5.39","5.49","5.59","5.69","5.79","5.89","5.90","5.95","5.99","6.00","6.09","6.19","6.29","6.39","6.49","6.59","6.69","6.79","6.89","6.90","6.95","6.99","7.00","7.09","7.19","7.29","7.39","7.49","7.59","7.69","7.79","7.89","7.90","7.95","7.99","8.00","8.09","8.19","8.29","8.39","8.49","8.59","8.69","8.79","8.89","8.90","8.95","8.99","9.00","9.09","9.19","9.29","9.39","9.49","9.59","9.69","9.79","9.89","9.90","9.95","9.99","10.00","10.49","10.90","10.95","10.99","11.00","11.49","11.90","11.95","11.99","12.00","12.49","12.90","12.95","12.99","13.00","13.49","13.90","13.95","13.99","14.00","14.49","14.90","14.95","14.99","15.00","15.49","15.90","15.95","15.99","16.00","16.49","16.90","16.95","16.99","17.00","17.49","17.90","17.95","17.99","18.00","18.49","18.90","18.95","18.99","19.00","19.49","19.90","19.95","19.99","20.00","20.49","20.90","20.95","20.99","21.00","21.49","21.90","21.95","21.99","22.00","22.49","22.90","22.95","22.99","23.00","23.49","23.90","23.95","23.99","24.00","24.49","24.90","24.95","24.99","25.00","25.49","25.90","25.95","25.99","26.00","26.49","26.90","26.95","26.99","27.00","27.49","27.90","27.95","27.99","28.00","28.49","28.90","28.95","28.99","29.00","29.49","29.90","29.95","29.99","30.00","30.49","30.90","30.95","30.99","31.00","31.49","31.90","31.95","31.99","32.00","32.49","32.90","32.95","32.99","33.00","33.49","33.90","33.95","33.99","34.00","34.49","34.90","34.95","34.99","35.00","35.49","35.90","35.95","35.99","36.00","36.49","36.90","36.95","36.99","37.00","37.49","37.90","37.95","37.99","38.00","38.49","38.90","38.95","38.99","39.00","39.49","39.90","39.95","39.99","40.00","40.49","40.90","40.95","40.99","41.00","41.49","41.90","41.95","41.99","42.00","42.49","42.90","42.95","42.99","43.00","43.49","43.90","43.95","43.99","44.00","44.49","44.90","44.95","44.99","45.00","45.49","45.90","45.95","45.99","46.00","46.49","46.90","46.95","46.99","47.00","47.49","47.90","47.95","47.99","48.00","48.49","48.90","48.95","48.99","49.00","49.49","49.90","49.95","49.99","50.00","50.90","50.99","51.00","51.90","51.99","52.00","52.90","52.99","53.00","53.90","53.99","54.00","54.90","54.99","55.00","55.90","55.99","56.00","56.90","56.99","57.00","57.90","57.99","58.00","58.90","58.99","59.00","59.90","59.99","60.00","60.90","60.99","61.00","61.90","61.99","62.00","62.90","62.99","63.00","63.90","63.99","64.00","64.90","64.99","65.00","65.90","65.99","66.00","66.90","66.99","67.00","67.90","67.99","68.00","68.90","68.99","69.00","69.90","69.99","70.00","70.90","70.99","71.00","71.90","71.99","72.00","72.90","72.99","73.00","73.90","73.99","74.00","74.90","74.99","75.00","75.90","75.99","76.00","76.90","76.99","77.00","77.90","77.99","78.00","78.90","78.99","79.00","79.90","79.99","80.00","80.90","80.99","81.00","81.90","81.99","82.00","82.90","82.99","83.00","83.90","83.99","84.00","84.90","84.99","85.00","85.90","85.99","86.00","86.90","86.99","87.00","87.90","87.99","88.00","88.90","88.99","89.00","89.90","89.99","90.00","90.90","90.99","91.00","91.90","91.99","92.00","92.90","92.99","93.00","93.90","93.99","94.00","94.90","94.99","95.00","95.90","95.99","96.00","96.90","96.99","97.00","97.90","97.99","98.00","98.90","98.99","99.00","99.90","99.99","100.00","100.99","101.99","102.99","103.99","104.99","105.99","106.99","107.99","108.99","109.00","109.99","110.99","111.99","112.99","113.99","114.99","115.99","116.99","117.99","118.99","119.00","119.99","120.99","121.99","122.99","123.99","124.99","125.99","126.99","127.99","128.99","129.00","129.99","130.99","131.99","132.99","133.99","134.99","135.99","136.99","137.99","138.99","139.00","139.99","140.99","141.99","142.99","143.99","144.99","145.99","146.99","147.99","148.99","149.00","149.99","150.00","150.99","151.99","152.99","153.99","154.99","155.99","156.99","157.99","158.99","159.00","159.99","160.99","161.99","162.99","163.99","164.99","165.99","166.99","167.99","168.99","169.00","169.99","170.99","171.99","172.99","173.99","174.99","175.99","176.99","177.99","178.99","179.00","179.99","180.99","181.99","182.99","183.99","184.99","185.99","186.99","187.99","188.99","189.00","189.99","190.00","190.99","191.99","192.99","193.99","194.99","195.99","196.99","197.99","198.99","199.00","199.99","200.00","204.99","209.00","209.99","214.99","219.00","219.99","224.99","229.00","229.99","234.99","239.00","239.99","244.99","249.00","249.99","250.00","254.99","259.00","259.99","264.99","269.00","269.99","274.99","279.00","279.99","284.99","289.00","289.99","290.00","294.99","299.00","299.99","300.00","304.99","309.00","309.99","314.99","319.00","319.99","324.99","329.00","329.99","334.99","339.00","339.99","344.99","349.00","349.99","350.00","354.99","359.00","359.99","364.99","369.00","369.99","374.99","379.00","379.99","384.99","389.00","389.99","390.00","394.99","399.00","399.99","400.00","404.99","409.00","409.99","414.99","419.00","419.99","424.99","429.00","429.99","434.99","439.00","439.99","444.99","449.00","449.99","450.00","454.99","459.00","459.99","464.99","469.00","469.99","474.99","479.00","479.99","484.99","489.00","489.99","490.00","494.99","499.00","499.99","500.00","509.00","509.99","519.00","519.99","529.00","529.99","539.00","539.99","549.00","549.99","559.00","559.99","569.00","569.99","579.00","579.99","589.00","589.99","590.00","599.00","599.99","600.00","609.00","609.99","619.00","619.99","629.00","629.99","639.00","639.99","649.00","649.99","659.00","659.99","669.00","669.99","679.00","679.99","689.00","689.99","690.00","699.00","699.99","700.00","709.00","709.99","719.00","719.99","729.00","729.99","739.00","739.99","749.00","749.99","759.00","759.99","769.00","769.99","779.00","779.99","789.00","789.99","790.00","799.00","799.99","800.00","809.00","809.99","819.00","819.99","829.00","829.99","839.00","839.99","849.00","849.99","859.00","859.99","869.00","869.99","879.00","879.99","889.00","889.99","890.00","899.00","899.99","900.00","909.00","909.99","919.00","919.99","929.00","929.99","939.00","939.99","949.00","949.99","959.00","959.99","969.00","969.99","979.00","979.99","989.00","989.99","990.00","999.00","999.99","1000.00"],"sets":{"9.99":{"src":0,"p":[9.99,9.99,9.99,11.99,39.99,9.99,11.99,9.99,14.99,9.99,11.99,9.99,11.99,9.99,9.99,9.99,9.99,9.99,11.99,9.99,9.99,9.99,59.9,11.99,9.99,9.99,9.99,12.99,9,9990,68,11.99,11.99,9.99,9.99,49900,9.99,9.99,9.99,9.99,249,9.99,9.99,89,9.99,9.99,9.99,499.99,9.99,9.99,9.99,9.99,9.99,9.99,9.99,9.99,11.99,11.99,9.99,9.99,9.99,9.99,9.99,9.99,88,9.99,9.99,4490,169000,999,9.99,9.99,11.99,34.9,9.99,9.99,9.99,1500,5990,11.99,9.99,9.99,9.99,17000,9.99,9.99,9.99,9.99,9.99,9.99,9.99,9.99,9.99,9.99,9.99,9.99,11.99,9.99,9.99,199,9.99,9.99,9.99,9.99,9.99,9.99,9.99,9.99,9.99,11.99,9.99,49.9,9.99,9.99,14900,9.99,9.99,129,11.99,9.99,19.99,9.99,2900,9.99,44.9,599,9.99,9.99,49.99,9.99,9.99,39.99,49.99,899,9.99,39.99,11.99,14.98,9.99,9.99,9.99,9.99,9.99,9.99,9.99,9.99,129,9.99,9.99,9.99,9.99,399,9.99,9.99,9.99,9.99,9.99,499.99,320,29900,11.99,11.99,9.99,9.99,9.99,9.99,9.99,9.99,299000,9.99,9.99,9.99,199.99,11.99,11.99]},"29.99":{"src":0,"p":[29.99,29.99,29.99,34.99,119.99,29.99,34.99,29.99,49.99,34.99,34.99,34.99,34.99,29.99,34.99,29.99,29.99,34.99,34.99,29.99,29.99,29.99,199.9,34.99,29.99,29.99,29.99,39.99,25,34990,198,34.99,34.99,29.99,29.99,129900,29.99,29.99,29.99,34.99,799,34.99,29.99,249,29.99,29.99,29.99,1499.99,34.99,34.99,34.99,29.99,34.99,29.99,29.99,29.99,34.99,34.99,29.99,29.99,34.99,29.99,29.99,29.99,228,29.99,34.99,12990,499000,2999,34.99,29.99,34.99,99.9,34.99,29.99,29.99,5000,17990,34.99,29.99,29.99,29.99,49000,29.99,29.99,29.99,29.99,29.99,29.99,29.99,34.99,34.99,34.99,29.99,29.99,34.99,29.99,29.99,599,29.99,29.99,34.99,29.99,29.99,29.99,29.99,29.99,29.99,34.99,29.99,129.9,29.99,29.99,49900,29.99,34.99,399,34.99,29.99,49.99,29.99,7900,29.99,129.9,1990,29.99,29.99,129.99,34.99,29.99,99.99,149.99,2490,29.99,129.99,34.99,39.98,29.99,29.99,29.99,34.99,29.99,29.99,34.99,34.99,399,29.99,29.99,29.99,29.99,999,29.99,29.99,29.99,29.99,29.99,1499.99,990,89900,34.99,34.99,29.99,29.99,29.99,29.99,29.99,29.99,999000,29.99,34.99,29.99,599.99,34.99,34.99]},"3.99":{"src":1,"p":[3.99,3.99,3.99,4.99,14.99,3.99,4.99,3.99,5.99,3.99,4.99,3.99,4.99,3.99,3.99,3.99,3.99,3.99,4.99,3.99,3.99,3.99,24.9,4.99,3.99,3.99,3.99,4.99,3,4990,28,4.99,4.99,3.99,3.99,19900,3.99,3.99,3.99,3.99,99,3.99,3.99,39,3.99,3.99,3.99,199.99,3.99,3.99,3.99,3.99,3.99,3.99,3.99,3.99,4.99,4.99,3.99,3.99,3.99,3.99,3.99,3.99,32,3.99,3.99,1790,69000,399,3.99,3.99,4.99,14.9,3.99,3.99,3.99,600,2490,4.99,3.99,3.99,3.99,6600,3.99,3.99,3.99,3.99,3.99,3.99,3.99,3.99,3.99,3.99,3.99,3.99,4.99,3.99,3.99,89,3.99,3.99,3.99,3.99,3.99,3.99,3.99,3.99,3.99,4.99,3.99,19.9,3.99,3.99,6900,3.99,3.99,49,4.99,3.99,6.99,3.99,1100,3.99,17.9,249,3.99,3.99,19.99,3.99,3.99,14.99,19.99,349,3.99,17.99,4.99,5.98,3.99,3.99,3.99,3.99,3.99,3.99,3.99,3.99,49,3.99,3.99,3.99,3.99,149,3.99,3.99,3.99,3.99,3.99,199.99,120,11900,4.99,4.99,3.99,3.99,3.99,3.99,3.99,3.99,119000,3.99,3.99,3.99,79.99,4.99,4.99]},"5.99":{"src":1,"p":[5.99,5.99,5.99,6.99,22.99,5.99,6.99,5.99,9.99,6.99,6.99,6.99,6.99,5.99,6.99,6.99,6.99,6.99,6.99,5.99,5.99,5.99,39.9,6.99,5.99,5.99,5.99,7.99,5,6990,38,6.99,6.99,5.99,5.99,29900,5.99,5.99,5.99,6.99,149,6.99,5.99,49,5.99,5.99,5.99,299.99,6.99,6.99,6.99,5.99,6.99,5.99,5.99,5.99,6.99,6.99,5.99,5.99,6.99,5.99,5.99,5.99,48,5.99,6.99,2490,99000,599,6.99,5.99,6.99,19.9,6.99,5.99,5.99,1000,3490,6.99,6.99,6.99,5.99,9900,5.99,6.99,5.99,5.99,5.99,5.99,5.99,6.99,6.99,6.99,5.99,5.99,6.99,5.99,5.99,129,5.99,5.99,6.99,5.99,5.99,5.99,5.99,5.99,5.99,6.99,5.99,29.9,5.99,5.99,9900,5.99,6.99,79,6.99,5.99,9.99,5.99,1700,5.99,24.9,399,5.99,5.99,29.99,6.99,5.99,19.99,29.99,499,5.99,24.99,6.99,8.98,5.99,5.99,5.99,6.99,5.99,6.99,6.99,6.99,79,5.99,5.99,5.99,5.99,199,6.99,5.99,5.99,5.99,5.99,299.99,190,17900,6.99,6.99,5.99,5.99,6.99,5.99,5.99,5.99,199000,5.99,6.99,5.99,119.99,6.99,6.99]},"39.99":{"src":1,"p":[39.99,39.99,39.99,49.99,149.99,39.99,49.99,39.99,59.99,44.99,49.99,44.99,49.99,39.99,44.99,39.99,39.99,44.99,49.99,39.99,39.99,39.99,249.9,49.99,39.99,39.99,39.99,49.99,35,49990,298,49.99,49.99,39.99,39.99,199900,39.99,39.99,39.99,44.99,999,44.99,39.99,349,39.99,39.99,39.99,1999.99,44.99,44.99,44.99,39.99,44.99,39.99,39.99,39.99,49.99,49.99,39.99,39.99,44.99,39.99,39.99,39.99,288,39.99,44.99,17990,699000,3999,44.99,39.99,49.99,149.9,44.99,39.99,39.99,6000,22990,49.99,39.99,39.99,39.99,66000,39.99,39.99,39.99,39.99,39.99,39.99,39.99,44.99,44.99,44.99,39.99,39.99,49.99,39.99,39.99,899,39.99,39.99,44.99,39.99,39.99,39.99,39.99,39.99,39.99,49.99,39.99,199.9,39.99,39.99,69900,39.99,44.99,499,49.99,39.99,69.99,39.99,9900,39.99,179.9,2490,39.99,39.99,199.99,44.99,39.99,149.99,199.99,3490,39.99,179.99,49.99,59.98,39.99,39.99,39.99,44.99,39.99,39.99,44.99,44.99,499,39.99,39.99,39.99,39.99,1490,39.99,39.99,39.99,39.99,39.99,1999.99,1290,99900,49.99,49.99,39.99,39.99,39.99,39.99,39.99,39.99,1199000,39.99,44.99,39.99,799.99,49.99,49.99]}}},"iap":{"tiers":[],"sets":{}}}</script>
+<script type="application/json" id="data-tax">{"updated":"2026-08-27","basis":"Effective rates are derived from the per-unit proceeds Apple's App Store Connect API reported on 2026-06-17 (800 US price points and two price points in each of the other 174 storefronts), then updated with Apple's tax announcement of 2026-08-27. They assume the default 'App Store software' tax category and a developer based outside the storefront country; reduced rates for news, books and audiobooks are not modelled.","changes":[{"date":"2026-08-27","text":"Morocco: VAT of 20% introduced. Republic of the Congo: VAT of 18% introduced. Tanzania: digital sales tax raised from 2% to 3%.","url":"https://developer.apple.com/news/?id=artln8br"},{"date":"2026-01-29","text":"Bhutan GST 5%, Mauritius VAT 15%, Kazakhstan VAT 16%, Russia VAT 22%, Zimbabwe VAT 15.5%, Türkiye digital services tax 5% (already reflected in the snapshot).","url":"https://developer.apple.com/news/?id=gvnljl3f"}],"rules":{"AFG":{"mode":"none","t":0,"round30":"up"},"AGO":{"mode":"none","t":0,"round30":"up"},"AIA":{"mode":"none","t":0,"round30":"up"},"ALB":{"mode":"included","t":0.2,"label":"VAT"},"ARE":{"mode":"included","t":0.05,"label":"VAT"},"ARG":{"mode":"none","t":0,"round30":"up"},"ARM":{"mode":"included","t":0.2,"label":"VAT"},"ATG":{"mode":"none","t":0,"round30":"up"},"AUS":{"mode":"included","t":0.1,"label":"GST"},"AUT":{"mode":"included","t":0.2,"label":"VAT"},"AZE":{"mode":"included","t":0.18,"label":"VAT"},"BEL":{"mode":"included","t":0.21,"label":"VAT"},"BEN":{"mode":"included","t":0.18,"label":"VAT"},"BFA":{"mode":"none","t":0,"round30":"up"},"BGR":{"mode":"included","t":0.2,"label":"VAT"},"BHR":{"mode":"included","t":0.1,"label":"VAT"},"BHS":{"mode":"included","t":0.1,"label":"VAT"},"BIH":{"mode":"included","t":0.17,"label":"VAT"},"BLR":{"mode":"included","t":0.2,"label":"VAT"},"BLZ":{"mode":"none","t":0,"round30":"up"},"BMU":{"mode":"none","t":0,"round30":"up"},"BOL":{"mode":"none","t":0,"round30":"up"},"BRA":{"mode":"included","t":0.1445,"label":"Taxes","note":"Effective rate implied by the proceeds Apple reports. It applies to a developer based outside Brazil and combines several Brazilian taxes (Apple cites CIDE and IOF)."},"BRB":{"mode":"included","t":0.175,"label":"VAT"},"BRN":{"mode":"none","t":0,"round30":"up"},"BTN":{"mode":"included","t":0.05,"label":"GST"},"BWA":{"mode":"none","t":0,"round30":"up"},"CAN":{"mode":"checkout","t":0,"label":"GST/HST","note":"Canadian GST/HST and provincial taxes are added at checkout and are not part of the listed price."},"CHE":{"mode":"included","t":0.081,"label":"VAT"},"CHL":{"mode":"included","t":0.19,"label":"VAT"},"CHN":{"mode":"none","t":0,"d":0.06,"note":"No tax is taken from the price, but the proceeds Apple reports are lower by a levy tied to its commission, consistent with 6% VAT on that commission."},"CIV":{"mode":"included","t":0.18,"label":"VAT"},"CMR":{"mode":"included","t":0.1925,"label":"VAT"},"COD":{"mode":"none","t":0,"round30":"up"},"COG":{"mode":"included","t":0.18,"label":"VAT","note":"VAT of 18% introduced on 27 August 2026 (Apple announcement)."},"COL":{"mode":"included","t":0.19,"label":"VAT"},"CPV":{"mode":"none","t":0,"round30":"up"},"CRI":{"mode":"none","t":0,"round30":"up"},"CYM":{"mode":"none","t":0,"round30":"up"},"CYP":{"mode":"included","t":0.19,"label":"VAT"},"CZE":{"mode":"included","t":0.21,"label":"VAT"},"DEU":{"mode":"included","t":0.19,"label":"VAT"},"DMA":{"mode":"none","t":0,"round30":"up"},"DNK":{"mode":"included","t":0.25,"label":"VAT"},"DOM":{"mode":"none","t":0,"round30":"up"},"DZA":{"mode":"none","t":0,"round30":"up"},"ECU":{"mode":"none","t":0,"round30":"up"},"EGY":{"mode":"included","t":0.14,"label":"VAT"},"ESP":{"mode":"included","t":0.21,"label":"VAT","d":0.0155,"note":"The commission-linked levy is inferred from the proceeds Apple reports."},"EST":{"mode":"included","t":0.24,"label":"VAT"},"FIN":{"mode":"included","t":0.255,"label":"VAT"},"FJI":{"mode":"none","t":0,"round30":"up"},"FRA":{"mode":"included","t":0.2,"label":"VAT"},"FSM":{"mode":"none","t":0,"round30":"up"},"GAB":{"mode":"none","t":0,"round30":"up"},"GBR":{"mode":"included","t":0.2,"label":"VAT","d":0.02,"note":"The 2% matches the UK digital services tax."},"GEO":{"mode":"included","t":0.18,"label":"VAT"},"GHA":{"mode":"included","t":0.2,"label":"Taxes","note":"Effective rate implied by the proceeds Apple reports. Combines VAT with Ghana's national levies."},"GMB":{"mode":"none","t":0,"round30":"up"},"GNB":{"mode":"none","t":0,"round30":"up"},"GRC":{"mode":"included","t":0.24,"label":"VAT"},"GRD":{"mode":"none","t":0,"round30":"up"},"GTM":{"mode":"none","t":0,"round30":"up"},"GUY":{"mode":"none","t":0,"round30":"up"},"HKG":{"mode":"none","t":0},"HND":{"mode":"none","t":0,"round30":"up"},"HRV":{"mode":"included","t":0.25,"label":"VAT"},"HUN":{"mode":"included","t":0.27,"label":"VAT"},"IDN":{"mode":"included","t":0.11,"label":"VAT"},"IND":{"mode":"included","t":0.18,"label":"GST"},"IRL":{"mode":"included","t":0.23,"label":"VAT"},"IRQ":{"mode":"none","t":0,"round30":"up"},"ISL":{"mode":"included","t":0.24,"label":"VAT"},"ISR":{"mode":"none","t":0},"ITA":{"mode":"included","t":0.22,"label":"VAT","d":0.0273,"note":"The commission-linked levy is inferred from the proceeds Apple reports."},"JAM":{"mode":"none","t":0,"round30":"up"},"JOR":{"mode":"none","t":0,"round30":"up"},"JPN":{"mode":"included","t":0.1,"label":"Consumption tax"},"KAZ":{"mode":"included","t":0.16,"label":"VAT"},"KEN":{"mode":"included","t":0.16,"label":"VAT","d":0.015,"note":"The commission-linked levy is inferred from the proceeds Apple reports."},"KGZ":{"mode":"included","t":0.12,"label":"VAT"},"KHM":{"mode":"included","t":0.1,"label":"VAT"},"KNA":{"mode":"none","t":0,"round30":"up"},"KOR":{"mode":"included","t":0.1,"label":"VAT"},"KWT":{"mode":"none","t":0,"round30":"up"},"LAO":{"mode":"included","t":0.1,"label":"VAT"},"LBN":{"mode":"none","t":0,"round30":"up"},"LBR":{"mode":"none","t":0,"round30":"up"},"LBY":{"mode":"none","t":0,"round30":"up"},"LCA":{"mode":"none","t":0,"round30":"up"},"LKA":{"mode":"none","t":0,"round30":"up"},"LTU":{"mode":"included","t":0.21,"label":"VAT"},"LUX":{"mode":"included","t":0.17,"label":"VAT"},"LVA":{"mode":"included","t":0.21,"label":"VAT"},"MAC":{"mode":"none","t":0,"round30":"up"},"MAR":{"mode":"included","t":0.2,"label":"VAT","note":"VAT of 20% introduced on 27 August 2026 (Apple announcement)."},"MDA":{"mode":"included","t":0.2,"label":"VAT"},"MDG":{"mode":"none","t":0,"round30":"up"},"MDV":{"mode":"none","t":0,"round30":"up"},"MEX":{"mode":"included","t":0.16,"label":"VAT"},"MKD":{"mode":"none","t":0,"round30":"up"},"MLI":{"mode":"none","t":0,"round30":"up"},"MLT":{"mode":"included","t":0.18,"label":"VAT"},"MMR":{"mode":"none","t":0,"round30":"up"},"MNE":{"mode":"none","t":0},"MNG":{"mode":"none","t":0,"round30":"up"},"MOZ":{"mode":"none","t":0,"round30":"up"},"MRT":{"mode":"none","t":0,"round30":"up"},"MSR":{"mode":"none","t":0,"round30":"up"},"MUS":{"mode":"included","t":0.15,"label":"VAT"},"MWI":{"mode":"none","t":0,"round30":"up"},"MYS":{"mode":"included","t":0.08,"label":"Service tax"},"NAM":{"mode":"none","t":0,"round30":"up"},"NER":{"mode":"none","t":0,"round30":"up"},"NGA":{"mode":"included","t":0.075,"label":"VAT"},"NIC":{"mode":"none","t":0,"round30":"up"},"NLD":{"mode":"included","t":0.21,"label":"VAT"},"NOR":{"mode":"included","t":0.25,"label":"VAT"},"NPL":{"mode":"included","t":0.153061,"label":"Taxes","note":"Effective rate implied by the proceeds Apple reports. Consistent with 13% VAT plus a 2% digital services tax."},"NRU":{"mode":"none","t":0,"round30":"up"},"NZL":{"mode":"included","t":0.15,"label":"GST"},"OMN":{"mode":"included","t":0.05,"label":"VAT"},"PAK":{"mode":"none","t":0},"PAN":{"mode":"none","t":0,"round30":"up"},"PER":{"mode":"included","t":0.18,"label":"VAT"},"PHL":{"mode":"included","t":0.12,"label":"VAT","note":"The 12% VAT applies to developers based outside the Philippines."},"PLW":{"mode":"none","t":0,"round30":"up"},"PNG":{"mode":"none","t":0,"round30":"up"},"POL":{"mode":"included","t":0.23,"label":"VAT"},"PRT":{"mode":"included","t":0.23,"label":"VAT"},"PRY":{"mode":"none","t":0,"round30":"up"},"QAT":{"mode":"none","t":0},"ROU":{"mode":"included","t":0.21,"label":"VAT"},"RUS":{"mode":"included","t":0.22,"label":"VAT"},"RWA":{"mode":"none","t":0,"round30":"up"},"SAU":{"mode":"included","t":0.15,"label":"VAT"},"SEN":{"mode":"included","t":0.18,"label":"VAT"},"SGP":{"mode":"included","t":0.09,"label":"GST"},"SLB":{"mode":"none","t":0,"round30":"up"},"SLE":{"mode":"none","t":0,"round30":"up"},"SLV":{"mode":"none","t":0,"round30":"up"},"SRB":{"mode":"included","t":0.2,"label":"VAT"},"STP":{"mode":"none","t":0,"round30":"up"},"SUR":{"mode":"included","t":0.1,"label":"VAT"},"SVK":{"mode":"included","t":0.23,"label":"VAT"},"SVN":{"mode":"included","t":0.22,"label":"VAT"},"SWE":{"mode":"included","t":0.25,"label":"VAT"},"SWZ":{"mode":"none","t":0,"round30":"up"},"SYC":{"mode":"none","t":0,"round30":"up"},"TCA":{"mode":"none","t":0,"round30":"up"},"TCD":{"mode":"none","t":0,"round30":"up"},"THA":{"mode":"included","t":0.07,"label":"VAT"},"TJK":{"mode":"included","t":0.14,"label":"VAT"},"TKM":{"mode":"none","t":0,"round30":"up"},"TON":{"mode":"none","t":0,"round30":"up"},"TTO":{"mode":"none","t":0,"round30":"up"},"TUN":{"mode":"none","t":0,"round30":"up"},"TUR":{"mode":"included","t":0.263158,"label":"Taxes","note":"Effective rate implied by the proceeds Apple reports. Consistent with 20% VAT plus a 5% digital services tax."},"TWN":{"mode":"included","t":0.082474,"label":"Taxes","note":"Effective rate implied by the proceeds Apple reports. It is higher than Taiwan's 5% VAT alone."},"TZA":{"mode":"included","t":0.216495,"label":"Taxes","note":"Effective rate implied by the proceeds Apple reports. 18% VAT plus a digital services tax that Apple raised from 2% to 3% on 27 August 2026."},"UGA":{"mode":"included","t":0.242105,"label":"Taxes","note":"Effective rate implied by the proceeds Apple reports. Consistent with 18% VAT plus a 5% digital services tax."},"UKR":{"mode":"included","t":0.2,"label":"VAT"},"URY":{"mode":"none","t":0,"d":0.11,"note":"No tax is taken from the price, but the proceeds Apple reports are lower by a levy tied to its commission."},"USA":{"mode":"checkout","t":0,"label":"Sales tax","round30":"up","note":"US sales tax is calculated from the buyer's location and added at checkout where it applies; Apple collects and remits it separately."},"UZB":{"mode":"included","t":0.12,"label":"VAT"},"VCT":{"mode":"none","t":0,"round30":"up"},"VEN":{"mode":"none","t":0,"round30":"up"},"VGB":{"mode":"none","t":0,"round30":"up"},"VNM":{"mode":"included","t":0.164021,"label":"Taxes","note":"Effective rate implied by the proceeds Apple reports. It applies to a developer based outside Vietnam (10% VAT plus income-tax withholding); developers based in Vietnam are taxed differently."},"VUT":{"mode":"none","t":0,"round30":"up"},"XKS":{"mode":"included","t":0.18,"label":"VAT"},"YEM":{"mode":"none","t":0,"round30":"up"},"ZAF":{"mode":"included","t":0.15,"label":"VAT"},"ZMB":{"mode":"included","t":0.16,"label":"VAT"},"ZWE":{"mode":"included","t":0.215789,"label":"Taxes","note":"Effective rate implied by the proceeds Apple reports. Consistent with 15.5% VAT plus a 5% levy."}}}</script>
+<script type="application/json" id="data-commission">{"updated":"2026-10-01","default":{"standard":0.3,"reduced":0.15},"regional":[{"id":"eu","short":"EU","label":"European Union","storefronts":["AUT","BEL","BGR","CYP","CZE","DEU","DNK","ESP","EST","FIN","FRA","GRC","HRV","HUN","IRL","ITA","LTU","LUX","LVA","MLT","NLD","POL","PRT","ROU","SVK","SVN","SWE"],"standard":0.26,"reduced":0.15,"since":"2026-10-01","note":"European Union storefronts: 26% standard and 15% reduced for Apple In-App Purchase since 1 October 2026.","url":"https://developer.apple.com/support/apps-in-the-eu/"},{"id":"jp","short":"Japan","label":"Japan","storefronts":["JPN"],"standard":0.26,"reduced":0.15,"note":"Japan (iOS): 21% commission plus 5% Apple payment processing, or 10% plus 5% at the reduced rate.","url":"https://developer.apple.com/support/app-distribution-in-japan/"},{"id":"cn","short":"China","label":"China mainland","storefronts":["CHN"],"standard":0.25,"reduced":0.12,"since":"2026-03-15","note":"China mainland (iOS and iPadOS): 25% standard and 12% reduced since 15 March 2026.","url":"https://developer.apple.com/news/?id=dadukodv"}]}</script>
+<script type="application/json" id="data-fx">{"source":"ExchangeRate-API open access endpoint (open.er-api.com)","url":"https://www.exchangerate-api.com","date":"2026-10-01","base":"USD","rates":{"AED":3.6725,"AUD":1.438252,"BRL":5.200393,"CAD":1.421278,"CHF":0.835134,"CLP":973.46915,"CNY":6.716878,"COP":3333.963413,"CZK":21.547067,"DKK":6.586139,"EGP":51.965687,"EUR":0.881813,"GBP":0.753798,"HKD":7.846697,"HUF":323.038522,"IDR":17903.534018,"ILS":3.068956,"INR":95.997282,"JPY":157.298282,"KRW":1355.838011,"KZT":439.925737,"MXN":18.077867,"MYR":4.078529,"NGN":1328.645734,"NOK":9.609239,"NZD":1.774167,"PEN":3.442479,"PHP":62.754655,"PKR":276.984011,"PLN":3.84929,"QAR":3.64,"RON":4.648697,"RUB":83.691177,"SAR":3.75,"SEK":10.003958,"SGD":1.277638,"THB":33.580261,"TRY":49.048442,"TWD":31.908932,"TZS":2650.474592,"USD":1,"VND":25935.273468,"ZAR":16.415882}}</script>
+
+<script>
+'use strict';
+
+/* ============================================================
+   1. DATA ACCESS
+   ============================================================ */
+function readJSON(id, fallback) {
+  try { return JSON.parse(document.getElementById(id).textContent); } catch (e) { return fallback; }
+}
+const DATA = {
+  storefronts: readJSON('data-storefronts', []),
+  prices: readJSON('data-prices', {}),
+  tax: readJSON('data-tax', { rules: {} }),
+  commission: readJSON('data-commission', { default: { standard: 0.30, reduced: 0.15 }, regional: [] }),
+  fx: readJSON('data-fx', { rates: { USD: 1 } }),
+};
+const BASE = 'USA';
+const SF = Object.fromEntries(DATA.storefronts.map(s => [s.a3, s]));
+const ORDER = Object.fromEntries((DATA.prices.order || []).map((a3, i) => [a3, i]));
+
+const Pricing = {
+  /* One-time IAP and subscription price points are stored separately. If one
+     model has no data of its own, the other is used as a labelled stand-in. */
+  model(kind) {
+    const own = DATA.prices[kind];
+    if (own && own.tiers && own.tiers.length) return { data: own, standIn: false };
+    const other = DATA.prices[kind === 'iap' ? 'subscription' : 'iap'];
+    return { data: (other && other.tiers && other.tiers.length) ? other : { tiers: [], sets: {} }, standIn: true };
+  },
+  tiers(kind) { return this.model(kind).data.tiers; },
+  hasSet(kind, tier) { return !!this.model(kind).data.sets[tier]; },
+  source(kind, tier) {
+    const set = this.model(kind).data.sets[tier];
+    return set ? (DATA.prices.sources || [])[set.src] || null : null;
+  },
+  /* Apple's localized customer price for a US-reference price point. */
+  localized(kind, tier, a3) {
+    if (a3 === BASE) return { price: Number(tier), stale: false, base: true };
+    const set = this.model(kind).data.sets[tier];
+    if (!set) return null;
+    const v = set.p[ORDER[a3]];
+    if (v == null) return null;
+    const src = (DATA.prices.sources || [])[set.src] || {};
+    const upd = (DATA.prices.priceUpdates || []).find(u => u.storefronts.includes(a3) && src.asOf && src.asOf < u.date);
+    return { price: v, stale: !!upd, staleInfo: upd || null, base: false };
+  },
+};
+
+/* ============================================================
+   2. CALCULATION ENGINE (pure functions, no DOM)
+   ============================================================ */
+const Engine = {
+  round(v, dec, mode) {
+    const x = Math.round(v * Math.pow(10, dec) * 1e6) / 1e6;       // strip float noise
+    const n = mode === 'up' ? Math.ceil(x) : Math.floor(x + 0.5);  // Apple rounds half up
+    return n / Math.pow(10, dec);
+  },
+  rule(a3) {
+    return DATA.tax.rules[a3] || { mode: 'unknown', t: 0 };
+  },
+  /* Commission rate for a storefront given the user's choice. */
+  commission(a3, sel) {
+    if (sel.mode === 'custom') return { rate: sel.custom, regional: null };
+    const reg = sel.regional ? (DATA.commission.regional || []).find(r => r.storefronts.includes(a3)) : null;
+    const sched = reg || DATA.commission.default;
+    return { rate: sched[sel.mode], regional: reg || null };
+  },
+  /* customer price -> tax treatment -> tax-exclusive amount -> commission -> proceeds */
+  compute(sf, price, rate) {
+    const rule = this.rule(sf.a3);
+    const dec = sf.decimals;
+    const t = rule.mode === 'included' ? rule.t : 0;   // tax contained in the customer price
+    const d = rule.d || 0;                             // levy tied to Apple's commission
+    const net = price / (1 + t);
+    const fee = net * rate;
+    const raw = net * (1 - rate) / (1 + d * rate);
+    const up = rule.round30 === 'up' && Math.abs(rate - 0.30) < 1e-9;
+    const proceeds = this.round(raw, dec, up ? 'up' : 'half');
+    return {
+      countryCode: sf.a2,
+      country: sf.name,
+      currency: sf.currency,
+      customerPrice: price,
+      taxRate: rule.mode === 'included' ? t : (rule.mode === 'unknown' ? null : 0),
+      taxIncluded: rule.mode === 'included',
+      taxMode: rule.mode,
+      taxAmount: this.round(price - net, dec),
+      taxExclusivePrice: this.round(net, dec),
+      appleCommissionRate: rate,
+      appleCommission: this.round(fee, dec),
+      otherDeductions: d ? this.round(Math.max(0, net - fee - raw), dec) : 0,
+      developerProceeds: proceeds,
+      effectiveShare: price > 0 ? proceeds / price : 0,
+    };
+  },
+};
+
+/* ============================================================
+   3. STATE
+   ============================================================ */
+const PERIODS = { weekly: ['Weekly', 52], monthly: ['Monthly', 12], quarterly: ['3 months', 4], semiannual: ['6 months', 2], yearly: ['Yearly', 1] };
+const store = {
+  get(k, f) { try { const v = localStorage.getItem(k); return v == null ? f : JSON.parse(v); } catch (e) { return f; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* storage unavailable */ } },
+};
+const saved = store.get('asnp.state', {});
+const state = Object.assign({
+  model: 'subscription', period: 'monthly',
+  commission: 'reduced', customRate: 20, regional: true,
+  priceMode: 'tier', tier: '39.99', customAmount: 39.99, customCurrency: 'EUR',
+  q: '', region: '', fDiff: false, fTax: false,
+  sort: { k: 'name', dir: 1 },
+  compare: ['USA', 'DEU', 'SWE', 'FRA', 'GBR', 'CAN', 'AUS'], cmpSort: 'high',
+  estSf: 'USA', estPay: null, estRef: 0,
+  overrides: {},
+}, saved);
+state.open = null;
+let fx = { rates: DATA.fx.rates || { USD: 1 }, date: DATA.fx.date, live: false };
+
+function save() {
+  const { open, q, ...keep } = state;
+  store.set('asnp.state', keep);
+}
+function sanitize() {
+  const tiers = Pricing.tiers(state.model);
+  if (!tiers.includes(state.tier)) {
+    const withData = tiers.filter(t => Pricing.hasSet(state.model, t));
+    state.tier = withData.includes('39.99') ? '39.99' : (withData[withData.length - 1] || tiers[0] || '0.99');
+  }
+  state.compare = state.compare.filter(a => SF[a]);
+  if (!SF[state.estSf]) state.estSf = BASE;
+  if (!DATA.storefronts.some(s => s.currency === state.customCurrency)) state.customCurrency = 'USD';
+}
+
+/* ============================================================
+   4. VIEW MODEL
+   ============================================================ */
+const sel = () => ({ mode: state.commission, custom: Math.min(100, Math.max(0, Number(state.customRate) || 0)) / 100, regional: state.regional });
+const ovKey = a3 => `${state.model}|${state.tier}|${a3}`;
+
+function priceFor(sf) {
+  if (state.priceMode === 'custom') {
+    const amt = Number(state.customAmount);
+    return sf.currency === state.customCurrency && amt > 0 ? { price: amt, src: 'custom' } : null;
+  }
+  const manual = state.overrides[ovKey(sf.a3)];
+  if (manual != null) return { price: manual, src: 'manual' };
+  const loc = Pricing.localized(state.model, state.tier, sf.a3);
+  if (!loc) return null;
+  return { price: loc.price, src: loc.base ? 'base' : 'apple', stale: loc.stale, staleInfo: loc.staleInfo };
+}
+function toUSD(v, cur) {
+  const r = fx.rates[cur];
+  return v == null || !r ? null : v / r;
+}
+function buildRows() {
+  const s = sel();
+  return DATA.storefronts.map(sf => {
+    const p = priceFor(sf);
+    const com = Engine.commission(sf.a3, s);
+    const rule = Engine.rule(sf.a3);
+    const calc = p ? Engine.compute(sf, p.price, com.rate) : null;
+    return {
+      sf, rule, com, p, calc,
+      usd: calc ? toUSD(calc.developerProceeds, sf.currency) : null,
+      priceUsd: p ? toUSD(p.price, sf.currency) : null,
+    };
+  });
+}
+function baseInfo() {
+  return state.priceMode === 'custom'
+    ? { currency: state.customCurrency, price: Number(state.customAmount) }
+    : { currency: SF[BASE] ? SF[BASE].currency : 'USD', price: Number(state.tier) };
+}
+function filterRows(rows) {
+  const q = state.q.trim().toLowerCase();
+  const b = baseInfo();
+  return rows.filter(r => {
+    const sf = r.sf;
+    if (q && !(sf.name.toLowerCase().includes(q) || sf.currency.toLowerCase().includes(q) || sf.a2.toLowerCase() === q || sf.a3.toLowerCase() === q)) return false;
+    if (state.region === 'EU' && !sf.eu) return false;
+    if (state.region && state.region !== 'EU' && sf.region !== state.region) return false;
+    if (state.fDiff && !(r.p && (sf.currency !== b.currency || r.p.price !== b.price))) return false;
+    if (state.fTax && r.rule.mode !== 'included') return false;
+    return true;
+  });
+}
+const SORT = {
+  name: r => r.sf.name, currency: r => r.sf.currency, price: r => r.priceUsd,
+  tax: r => (r.rule.mode === 'included' ? r.rule.t : 0),
+  net: r => (r.calc ? toUSD(r.calc.taxExclusivePrice, r.sf.currency) : null),
+  fee: r => (r.calc ? toUSD(r.calc.appleCommission, r.sf.currency) : null),
+  proceeds: r => r.usd, usd: r => r.usd,
+};
+function sortRows(rows, k, dir) {
+  const f = SORT[k] || SORT.name;
+  return rows.slice().sort((a, b) => {
+    const x = f(a), y = f(b);
+    if (x == null && y == null) return a.sf.name.localeCompare(b.sf.name);
+    if (x == null) return 1;
+    if (y == null) return -1;
+    const c = typeof x === 'string' ? x.localeCompare(y) : x - y;
+    return c ? c * dir : a.sf.name.localeCompare(b.sf.name);
+  });
+}
+
+/* ============================================================
+   5. FORMATTING
+   ============================================================ */
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmtCache = {};
+function money(v, cur, dec) {
+  if (v == null || !isFinite(v)) return '—';
+  const key = cur + dec;
+  if (!fmtCache[key]) {
+    try { fmtCache[key] = new Intl.NumberFormat('en-US', { style: 'currency', currency: cur, minimumFractionDigits: dec, maximumFractionDigits: dec }); }
+    catch (e) { fmtCache[key] = { format: n => cur + ' ' + n.toFixed(dec) }; }
+  }
+  return fmtCache[key].format(v);
+}
+const usd = v => money(v, 'USD', 2);
+const pct = (v, max = 2) => (v * 100).toLocaleString('en-US', { maximumFractionDigits: max }) + '%';
+const flag = a2 => String.fromCodePoint(...[...a2.toUpperCase()].map(c => 0x1F1E6 + c.charCodeAt(0) - 65));
+const lm = (r, v) => money(v, r.sf.currency, r.sf.decimals);
+function taxLabel(rule) {
+  if (rule.mode === 'included') return `${rule.label || 'Tax'} ${pct(rule.t)}`;
+  if (rule.mode === 'checkout') return 'Added at checkout';
+  if (rule.mode === 'none') return 'None';
+  return 'Unknown';
+}
+function priceLabel() {
+  if (state.priceMode === 'custom') {
+    const sf = DATA.storefronts.find(s => s.currency === state.customCurrency);
+    return money(Number(state.customAmount) || 0, state.customCurrency, sf ? sf.decimals : 2);
+  }
+  return usd(Number(state.tier));
+}
+
+/* ============================================================
+   6. RENDER
+   ============================================================ */
+let ROWS = [], VISIBLE = [];
+
+function render() {
+  sanitize();
+  ROWS = buildRows();
+  VISIBLE = sortRows(filterRows(ROWS), state.sort.k, state.sort.dir);
+  renderControls();
+  renderSummary();
+  renderNotices();
+  renderTable();
+  renderCompare();
+  renderEstimate();
+  if (state.open) renderSheet();
+  save();
+}
+
+function renderControls() {
+  document.querySelectorAll('#segModel button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === state.model));
+  document.querySelectorAll('#segPrice button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === state.priceMode));
+  $('periodBox').hidden = state.model !== 'subscription';
+  $('period').value = state.period;
+  $('commission').value = state.commission;
+  $('customRate').hidden = state.commission !== 'custom';
+  $('regional').checked = state.regional;
+  $('regional').disabled = state.commission === 'custom';
+  $('tierBox').hidden = state.priceMode !== 'tier';
+  $('customBox').hidden = state.priceMode !== 'custom';
+
+  const m = Pricing.model(state.model);
+  const tiers = m.data.tiers;
+  const withData = tiers.filter(t => m.data.sets[t]);
+  const sig = state.model + tiers.length + '/' + withData.length;
+  const tierSel = $('tier');
+  if (tierSel.dataset.sig !== sig) {
+    const opt = t => `<option value="${t}">$${t}</option>`;
+    tierSel.innerHTML = withData.length === tiers.length
+      ? tiers.map(opt).join('')
+      : `<optgroup label="Localized Apple prices available (${withData.length})">${withData.map(opt).join('')}</optgroup>` +
+        `<optgroup label="All price points, localized prices not loaded (${tiers.length - withData.length})">${tiers.filter(t => !m.data.sets[t]).map(opt).join('')}</optgroup>`;
+    tierSel.dataset.sig = sig;
+    $('tierChips').innerHTML = withData.length && withData.length <= 12
+      ? withData.map(t => `<button type="button" class="chip" data-tier="${t}">$${t}</button>`).join('') : '';
+  }
+  tierSel.value = state.tier;
+  document.querySelectorAll('#tierChips .chip').forEach(c => c.setAttribute('aria-pressed', c.dataset.tier === state.tier));
+  $('tierHint').textContent = `US reference price. Apple generates the localized storefront prices from it. ${tiers.length} price points listed` +
+    (withData.length < tiers.length ? `, ${withData.length} with localized prices embedded.` : '.');
+  $('modelHint').textContent = state.model === 'subscription'
+    ? 'Auto-renewable subscription price points. The period only affects the annual estimate below.'
+    : 'One-time purchases: consumable, non-consumable and non-renewing.';
+}
+
+function renderSummary() {
+  const have = ROWS.filter(r => r.usd != null);
+  const lo = have.reduce((a, r) => (!a || r.usd < a.usd ? r : a), null);
+  const hi = have.reduce((a, r) => (!a || r.usd > a.usd ? r : a), null);
+  const avg = have.length ? have.reduce((s, r) => s + r.usd, 0) / have.length : null;
+  const total = DATA.storefronts.length;
+  const stat = (k, v, s, cls = '') => `<div class="card stat ${cls}"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`;
+  $('summary').innerHTML =
+    stat('Your price', esc(priceLabel()), state.priceMode === 'custom' ? `Custom price, ${esc(state.customCurrency)} storefronts` : 'Apple price point, US reference', 'hero') +
+    stat('Countries', total, have.length === total ? 'All storefronts priced' : `${have.length} with price data`) +
+    stat('Average developer proceeds', usd(avg), have.length ? `Simple mean of ${have.length} storefronts` : 'No data') +
+    stat('Lowest proceeds', usd(lo && lo.usd), lo ? `${flag(lo.sf.a2)} ${esc(lo.sf.name)}` : '—') +
+    stat('Highest proceeds', usd(hi && hi.usd), hi ? `${flag(hi.sf.a2)} ${esc(hi.sf.name)}` : '—');
+}
+
+const ICON_WARN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4m0 4h.01M10.3 3.9L2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>';
+function renderNotices() {
+  const out = [];
+  const m = Pricing.model(state.model);
+  if (state.priceMode === 'tier') {
+    if (!m.data.sets[state.tier]) {
+      out.push(`<b>Apple's localized prices for the $${esc(state.tier)} price point are not embedded.</b> Only the United States can be calculated; every other storefront is marked unavailable rather than estimated. Run <code>node scripts/fetch-apple-prices.mjs</code> with your App Store Connect API key to load all price points, or open a country and enter the price App Store Connect shows.`);
+    } else if (m.standIn) {
+      out.push(`<b>No ${state.model === 'iap' ? 'one-time In-App Purchase' : 'subscription'} price points are embedded yet.</b> Shown instead: Apple's ${state.model === 'iap' ? 'subscription' : 'In-App Purchase'} equalization of the same US price, which can differ in some storefronts. Run the fetch script to load the real ones.`);
+    }
+    const stale = ROWS.filter(r => r.p && r.p.stale);
+    if (stale.length) {
+      const u = stale[0].p.staleInfo;
+      out.push(`<b>${stale.map(r => esc(r.sf.name)).join(', ')}:</b> the embedded price snapshot predates Apple's ${esc(u.date)} price update for ${stale.length > 1 ? 'these storefronts' : 'this storefront'}, so the current Apple price may be different. These rows are tagged “check”.`);
+    }
+  }
+  $('notices').innerHTML = out.map(t => `<div class="notice">${ICON_WARN}<div>${t}</div></div>`).join('');
+}
+
+function rowTags(r) {
+  let t = '';
+  if (r.p && r.p.src === 'manual') t += '<span class="tag">manual</span>';
+  if (r.p && r.p.stale) t += '<span class="tag warn">check</span>';
+  return t;
+}
+function renderTable() {
+  document.querySelectorAll('#grid thead th').forEach(th => {
+    const on = th.dataset.k === state.sort.k;
+    if (on) th.setAttribute('aria-sort', state.sort.dir > 0 ? 'ascending' : 'descending'); else th.removeAttribute('aria-sort');
+    th.querySelector('.ar').textContent = on ? (state.sort.dir > 0 ? '▲' : '▼') : '▲';
+  });
+  const sv = `${state.sort.k}:${state.sort.dir}`;
+  $('sortSel').value = [...$('sortSel').options].some(o => o.value === sv) ? sv : 'name:1';
+  const picked = new Set(state.compare);
+  $('rows').innerHTML = VISIBLE.map(r => {
+    const sf = r.sf, c = r.calc;
+    const taxCls = r.rule.mode === 'included' ? 'tax' : '';
+    return `<tr data-a3="${sf.a3}" tabindex="0">
+<td class="c-country"><label class="pick" title="Add to comparison"><input type="checkbox" data-pick="${sf.a3}" ${picked.has(sf.a3) ? 'checked' : ''} aria-label="Compare ${esc(sf.name)}"></label><span class="flag">${flag(sf.a2)}</span><span class="nm">${esc(sf.name)}<span class="cur-m">${sf.currency}</span>${rowTags(r)}</span></td>
+<td class="c-cur" data-label="Currency">${sf.currency}</td>
+<td class="r" data-label="Customer price">${r.p ? lm(r, r.p.price) : '<span class="na">Unavailable</span>'}</td>
+<td data-label="Tax included"><span class="pill ${taxCls}">${esc(taxLabel(r.rule))}</span></td>
+<td class="r" data-label="Tax-exclusive price">${c ? lm(r, c.taxExclusivePrice) : '—'}</td>
+<td class="r" data-label="Apple commission">${c ? lm(r, c.appleCommission) + `<small>${pct(c.appleCommissionRate)}</small>` : '—'}</td>
+<td class="r you" data-label="Developer proceeds">${c ? lm(r, c.developerProceeds) + `<small>${pct(c.effectiveShare, 1)}</small>` : '—'}</td>
+<td class="r" data-label="Developer proceeds USD">${usd(r.usd)}</td>
+</tr>`;
+  }).join('');
+  $('empty').hidden = VISIBLE.length > 0;
+  const priced = VISIBLE.filter(r => r.calc).length;
+  $('count').textContent = `${VISIBLE.length} of ${ROWS.length} storefronts` + (priced < VISIBLE.length ? `, ${VISIBLE.length - priced} without price data` : '');
+}
+
+function renderCompare() {
+  const chosen = state.compare.map(a => ROWS.find(r => r.sf.a3 === a)).filter(Boolean);
+  $('cmpChips').innerHTML = chosen.map(r => `<button type="button" class="chip" data-rm="${r.sf.a3}" aria-label="Remove ${esc(r.sf.name)}">${flag(r.sf.a2)} ${esc(r.sf.name)} <span class="x">×</span></button>`).join('');
+  $('cmpAdd').innerHTML = '<option value="">Add country…</option>' +
+    DATA.storefronts.filter(s => !state.compare.includes(s.a3)).map(s => `<option value="${s.a3}">${esc(s.name)}</option>`).join('');
+  $('cmpSort').value = state.cmpSort;
+  const by = { high: ['usd', -1], low: ['usd', 1], price: ['price', -1], currency: ['currency', 1], name: ['name', 1] }[state.cmpSort];
+  const rows = sortRows(chosen, by[0], by[1]);
+  $('cmpRows').innerHTML = rows.length ? rows.map(r => {
+    const c = r.calc;
+    const tax = !c ? '—' : r.rule.mode === 'included' ? lm(r, c.taxAmount) : r.rule.mode === 'checkout' ? lm(r, 0) + '<small>at checkout</small>' : lm(r, 0);
+    return `<tr><td><span class="flag" style="display:inline-block">${flag(r.sf.a2)}</span> ${esc(r.sf.name)}${rowTags(r)}</td>
+<td class="r">${r.p ? lm(r, r.p.price) : '<span class="na">Unavailable</span>'}</td>
+<td class="r">${tax}</td>
+<td class="r">${c ? lm(r, c.appleCommission + c.otherDeductions) : '—'}</td>
+<td class="r you">${c ? lm(r, c.developerProceeds) : '—'}</td>
+<td class="r">${usd(r.usd)}</td></tr>`;
+  }).join('') : '<tr><td colspan="6" class="empty">No countries selected.</td></tr>';
+}
+
+function renderEstimate() {
+  $('estCard').hidden = state.model !== 'subscription';
+  if (state.model !== 'subscription') return;
+  const es = $('estSf');
+  if (!es.options.length) es.innerHTML = DATA.storefronts.map(s => `<option value="${s.a3}">${esc(s.name)} (${s.currency})</option>`).join('');
+  es.value = state.estSf;
+  const def = PERIODS[state.period][1];
+  const pay = state.estPay == null ? def : state.estPay;
+  if (document.activeElement !== $('estPay')) $('estPay').value = pay;
+  if (document.activeElement !== $('estRef')) $('estRef').value = state.estRef;
+  const r = ROWS.find(x => x.sf.a3 === state.estSf);
+  const keep = 1 - Math.min(100, Math.max(0, Number(state.estRef) || 0)) / 100;
+  const box = (k, v, s, cls = '') => `<div class="box ${cls}"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`;
+  if (!r || !r.calc) {
+    $('estOut').innerHTML = box('Estimated annual gross', '—', 'No price data for this storefront') + box('Refunds', '—', '') + box('Estimated annual developer proceeds', '—', '', 'pos');
+  } else {
+    const gross = r.p.price * pay, net = r.calc.developerProceeds * pay * keep;
+    $('estOut').innerHTML =
+      box('Estimated annual gross', lm(r, gross), `${lm(r, r.p.price)} × ${pay} · ${usd(toUSD(gross, r.sf.currency))}`) +
+      box('Refunded', lm(r, gross * (1 - keep)), `${pct(1 - keep)} of payments`) +
+      box('Estimated annual developer proceeds', lm(r, net), `${lm(r, r.calc.developerProceeds)} per payment · ${usd(toUSD(net, r.sf.currency))}`, 'pos');
+  }
+  $('estHint').textContent = `Estimate only. Renewals is your own input: it starts at ${def}, the most payments a ${PERIODS[state.period][0].toLowerCase()} plan can collect in 12 months, and no renewal behaviour is assumed beyond what you enter. One commission rate is applied to every payment; Apple's rate for a subscriber drops to the reduced rate after their first year of paid service.`;
+}
+
+function whyText(r) {
+  const c = r.calc, rule = r.rule, keepPct = pct(1 - c.appleCommissionRate);
+  const p = [];
+  if (rule.mode === 'included') {
+    p.push(`Because the displayed customer price includes ${esc(rule.label || 'tax')} of ${pct(rule.t)}. Apple first removes that tax (${lm(r, c.taxAmount)}) and then takes its ${pct(c.appleCommissionRate)} commission from the tax-exclusive amount, so you keep ${keepPct} of ${lm(r, c.taxExclusivePrice)}, not of ${lm(r, c.customerPrice)}.`);
+  } else if (rule.mode === 'checkout') {
+    p.push(`Here it is not different. In ${esc(r.sf.name)} sales tax depends on the buyer's location and is added on top of the price at checkout, so it is not part of the customer price. Your proceeds are the price minus Apple's commission: ${lm(r, c.customerPrice)} × ${keepPct}.`);
+  } else if (rule.mode === 'none') {
+    p.push(`Apple's proceeds for this storefront are calculated without removing a consumption tax from the customer price, so the tax-exclusive amount equals the price and only the commission is deducted.`);
+  } else {
+    p.push('No verified tax rule is available for this storefront, so no tax was removed. Treat this figure with caution.');
+  }
+  if (rule.d) p.push(`Apple's reported proceeds here are also reduced by a levy tied to its commission (about ${pct(rule.d)} of the commission, ${lm(r, c.otherDeductions)} on this purchase).`);
+  if (r.com.regional) p.push(`Apple's commission in this storefront follows a regional rate: ${esc(r.com.regional.note)}`);
+  if (rule.note) p.push(esc(rule.note));
+  return p.map(x => `<p>${x}</p>`).join('');
+}
+function sheetText(r) {
+  const c = r.calc;
+  if (!c) return `${r.sf.name}: customer price unavailable`;
+  return [
+    `${r.sf.name} (${r.sf.currency})`,
+    `Customer price: ${lm(r, c.customerPrice)}`,
+    `Tax: ${taxLabel(r.rule)}${r.rule.mode === 'included' ? ' = ' + lm(r, c.taxAmount) : ''}`,
+    `Tax-exclusive amount: ${lm(r, c.taxExclusivePrice)}`,
+    `Apple commission (${pct(c.appleCommissionRate)}): ${lm(r, c.appleCommission)}`,
+    c.otherDeductions ? `Commission-linked levy: ${lm(r, c.otherDeductions)}` : null,
+    `Developer proceeds: ${lm(r, c.developerProceeds)} (${usd(r.usd)})`,
+    `Effective percentage of customer price: ${pct(c.effectiveShare)}`,
+  ].filter(Boolean).join('\n');
+}
+function renderSheet() {
+  const r = ROWS.find(x => x.sf.a3 === state.open);
+  if (!r) return closeSheet();
+  const sf = r.sf, c = r.calc, rule = r.rule;
+  const treat = { included: 'Included in customer price', checkout: 'Added at checkout, not in the price', none: 'No tax deducted from the price', unknown: 'No verified rule' }[rule.mode];
+  let body;
+  if (c) {
+    const tot = c.customerPrice || 1;
+    const fee = c.appleCommission + c.otherDeductions;
+    body = `
+<div class="big">${lm(r, c.developerProceeds)}</div>
+<div class="big-s">Developer proceeds per purchase · ${usd(r.usd)} · ${pct(c.effectiveShare)} of the price</div>
+<div class="bar" aria-hidden="true"><i style="width:${c.taxAmount / tot * 100}%;background:var(--seg-tax)"></i><i style="width:${fee / tot * 100}%;background:var(--seg-fee)"></i><i style="flex:1;background:var(--seg-you)"></i></div>
+<div class="legend"><span style="--c:var(--seg-tax)">Tax ${pct(c.taxAmount / tot, 1)}</span><span style="--c:var(--seg-fee)">Apple ${pct(fee / tot, 1)}</span><span style="--c:var(--seg-you)">You ${pct(c.effectiveShare, 1)}</span></div>
+<dl class="dl">
+<div><dt>Customer price</dt><dd>${lm(r, c.customerPrice)}${rowTags(r)}</dd></div>
+<div><dt>Currency</dt><dd>${sf.currency}</dd></div>
+<div><dt>${esc(rule.label || 'Tax')}</dt><dd>${rule.mode === 'included' ? pct(rule.t) + ' · ' + lm(r, c.taxAmount) : esc(taxLabel(rule))}</dd></div>
+<div><dt>Tax treatment</dt><dd>${treat}</dd></div>
+<div><dt>Tax-exclusive amount</dt><dd>${lm(r, c.taxExclusivePrice)}</dd></div>
+<div><dt>Apple commission</dt><dd>${pct(c.appleCommissionRate)} · ${lm(r, c.appleCommission)}</dd></div>
+${c.otherDeductions ? `<div><dt>Commission-linked levy</dt><dd>${lm(r, c.otherDeductions)}</dd></div>` : ''}
+<div class="tot"><dt>Developer proceeds</dt><dd>${lm(r, c.developerProceeds)}</dd></div>
+<div><dt>Developer proceeds in USD</dt><dd>${usd(r.usd)}</dd></div>
+<div><dt>Effective percentage of customer price</dt><dd>${pct(c.effectiveShare)}</dd></div>
+</dl>
+<div class="why"><h4>Why is this different from ${pct(1 - c.appleCommissionRate)}?</h4>${whyText(r)}</div>`;
+  } else {
+    body = `<div class="notice" style="margin-top:4px">${ICON_WARN}<div><b>Customer price unavailable.</b> ${state.priceMode === 'custom'
+      ? `This storefront sells in ${sf.currency}, not ${esc(state.customCurrency)}.`
+      : `Apple's localized price for the $${esc(state.tier)} price point is not in the embedded data, and it is not estimated. Enter the price App Store Connect shows for ${esc(sf.name)} below.`}</div></div>
+<dl class="dl"><div><dt>Currency</dt><dd>${sf.currency}</dd></div><div><dt>Tax</dt><dd>${esc(taxLabel(rule))}</dd></div><div><dt>Tax treatment</dt><dd>${treat}</dd></div><div><dt>Apple commission</dt><dd>${pct(r.com.rate)}</dd></div></dl>`;
+  }
+  const manual = state.priceMode === 'tier' && sf.a3 !== BASE ? `
+<div class="manual"><label class="lbl" for="ovIn">Set this storefront's price manually (${sf.currency})</label>
+<div class="row"><input class="field num" id="ovIn" type="number" min="0" step="any" inputmode="decimal" value="${state.overrides[ovKey(sf.a3)] != null ? state.overrides[ovKey(sf.a3)] : ''}" placeholder="${r.p ? r.p.price : 'e.g. 44.99'}">
+<button class="btn" type="button" id="ovSet">Apply</button>${state.overrides[ovKey(sf.a3)] != null ? '<button class="btn" type="button" id="ovClear">Reset</button>' : ''}</div>
+<p class="hint">Use this when you price a storefront yourself or want to check a price from App Store Connect. Saved in this browser for the $${esc(state.tier)} price point.</p></div>` : '';
+  $('sheet').innerHTML = `
+<div class="sheet-h"><h3 id="sheetTitle"><span class="flag" style="font-size:24px;width:auto">${flag(sf.a2)}</span><span>${esc(sf.name)}</span></h3>
+<div class="row"><button class="btn sm" type="button" id="sheetCopy">Copy</button><button class="iconbtn" type="button" id="sheetClose" aria-label="Close" style="width:32px;height:32px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div></div>
+${body}${manual}
+<p class="hint">USD equivalent uses current FX rates and may differ from Apple's settlement exchange rate.</p>`;
+  $('sheetClose').onclick = closeSheet;
+  $('sheetCopy').onclick = () => copyText(sheetText(r), 'Breakdown copied');
+  if ($('ovSet')) {
+    const apply = () => { const v = Number($('ovIn').value); if (v > 0) { state.overrides[ovKey(sf.a3)] = v; render(); } };
+    $('ovSet').onclick = apply;
+    $('ovIn').onkeydown = e => { if (e.key === 'Enter') apply(); };
+  }
+  if ($('ovClear')) $('ovClear').onclick = () => { delete state.overrides[ovKey(sf.a3)]; render(); };
+}
+let lastFocus = null;
+function openSheet(a3) {
+  lastFocus = document.activeElement;
+  state.open = a3;
+  renderSheet();
+  $('sheet').classList.add('open');
+  $('scrim').classList.add('open');
+  $('sheet').scrollTop = 0;
+  $('sheet').focus({ preventScroll: true });
+}
+function closeSheet() {
+  state.open = null;
+  $('sheet').classList.remove('open');
+  $('scrim').classList.remove('open');
+  if (lastFocus && document.contains(lastFocus)) lastFocus.focus({ preventScroll: true });
+}
+
+function renderData() {
+  const P = DATA.prices, T = DATA.tax;
+  const total = ['iap', 'subscription'].map(k => {
+    const m = P[k] || { tiers: [], sets: {} };
+    return `${k === 'iap' ? 'In-App Purchase' : 'Subscription'}: ${m.tiers.length} price points, ${Object.keys(m.sets || {}).length} with localized prices`;
+  });
+  $('dataKv').innerHTML =
+    `<dt>Apple pricing data last updated</dt><dd>${esc((P.meta && P.meta.updated) || 'unknown')}</dd>` +
+    `<dt>Tax data last updated</dt><dd>${esc(T.updated || 'unknown')}</dd>` +
+    `<dt>Commission rates last updated</dt><dd>${esc(DATA.commission.updated || 'unknown')}</dd>` +
+    `<dt>FX rates</dt><dd id="fxKv"></dd>`;
+  $('dataNote').innerHTML = `<b>This data is not live.</b> Prices, tax rules and commission rates are a static snapshot stored inside this file; the page cannot retrieve official Apple data by itself because Apple only publishes localized prices through the authenticated App Store Connect API. ${esc((P.meta && P.meta.note) || '')} ${esc(total.join('. '))}. Refresh everything with <code>node scripts/fetch-apple-prices.mjs</code>.`;
+  const items = [];
+  (P.sources || []).forEach(s => items.push(`<b>Prices:</b> ${esc(s.label)} (as of ${esc(s.asOf)})${s.url ? ` · <a href="${esc(s.url)}" target="_blank" rel="noopener">source</a>` : ''}`));
+  if (T.basis) items.push(`<b>Tax rules:</b> ${esc(T.basis)}`);
+  (T.changes || []).forEach(c => items.push(`<b>Tax change ${esc(c.date)}:</b> ${esc(c.text)}${c.url ? ` · <a href="${esc(c.url)}" target="_blank" rel="noopener">Apple</a>` : ''}`));
+  (DATA.commission.regional || []).forEach(c => items.push(`<b>Commission, ${esc(c.label)}:</b> ${esc(c.note)}${c.url ? ` · <a href="${esc(c.url)}" target="_blank" rel="noopener">Apple</a>` : ''}`));
+  items.push(`<b>FX:</b> <a href="https://www.exchangerate-api.com" target="_blank" rel="noopener">Rates By Exchange Rate API</a> (open.er-api.com). USD equivalent uses current FX rates and may differ from Apple's settlement exchange rate. FX is never used to derive a customer price.`);
+  $('dataSrc').innerHTML = items.map(i => `<li>${i}</li>`).join('');
+  const reg = DATA.commission.regional || [];
+  $('regionalText').textContent = reg.length ? '(' + reg.map(r => `${r.short} ${pct(r.standard)} / ${pct(r.reduced)}`).join(', ') + ')' : '';
+  $('aboutRegional').textContent = reg.length ? 'Some storefronts have their own rates: ' + reg.map(r => `${r.label} ${pct(r.standard)} standard and ${pct(r.reduced)} reduced`).join('; ') + '. Untick “Apply Apple\'s regional rates” to use one rate everywhere.' : '';
+  renderFx();
+}
+function renderFx() {
+  const el = $('fxKv');
+  if (el) el.textContent = `${fx.date || 'unknown'} (${fx.live ? 'fetched live' : 'embedded snapshot'})`;
+}
+
+/* ============================================================
+   7. EXPORT
+   ============================================================ */
+function exportRecords(rows) {
+  return rows.map(r => {
+    const c = r.calc;
+    return {
+      country: r.sf.name, countryCode: r.sf.a2, storefront: r.sf.a3, currency: r.sf.currency,
+      priceTier: state.priceMode === 'tier' ? Number(state.tier) : null,
+      customerPrice: r.p ? r.p.price : null,
+      priceSource: r.p ? r.p.src : 'unavailable',
+      taxRate: c ? c.taxRate : (r.rule.mode === 'included' ? r.rule.t : 0),
+      taxIncluded: r.rule.mode === 'included',
+      taxAmount: c ? c.taxAmount : null,
+      taxExclusivePrice: c ? c.taxExclusivePrice : null,
+      appleCommissionRate: r.com.rate,
+      appleCommission: c ? c.appleCommission : null,
+      otherDeductions: c ? c.otherDeductions : null,
+      developerProceeds: c ? c.developerProceeds : null,
+      developerProceedsUSD: r.usd == null ? null : Math.round(r.usd * 100) / 100,
+    };
+  });
+}
+const COLS = [
+  ['Country', 'country'], ['Country Code', 'countryCode'], ['Currency', 'currency'], ['Price Tier', 'priceTier'],
+  ['Customer Price', 'customerPrice'], ['Tax Rate', 'taxRate'], ['Tax Included', 'taxIncluded'], ['Tax Amount', 'taxAmount'],
+  ['Tax Exclusive Price', 'taxExclusivePrice'], ['Apple Commission', 'appleCommission'], ['Developer Proceeds', 'developerProceeds'], ['USD Proceeds', 'developerProceedsUSD'],
+];
+function toDelimited(rows, sep) {
+  const q = v => {
+    const s = v == null ? '' : String(v);
+    return sep === ',' && /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
+  return [COLS.map(c => c[0]).join(sep)].concat(exportRecords(rows).map(o => COLS.map(c => q(o[c[1]])).join(sep))).join('\n');
+}
+function download(name, text, type) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type }));
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+function fileStem() {
+  const p = state.priceMode === 'tier' ? 'tier-' + state.tier : `custom-${state.customAmount}-${state.customCurrency}`;
+  return `app-store-proceeds_${state.model}_${p}`;
+}
+let toastT;
+function toast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastT);
+  toastT = setTimeout(() => t.classList.remove('show'), 1800);
+}
+function copyText(text, msg) {
+  const fallback = () => {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;opacity:0';
+    document.body.appendChild(ta);
+    ta.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) { /* ignore */ }
+    ta.remove();
+    toast(ok ? msg : 'Copy failed');
+  };
+  if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(() => toast(msg), fallback);
+  else fallback();
+}
+
+/* ============================================================
+   8. EVENTS
+   ============================================================ */
+function bind() {
+  $('segModel').onclick = e => { const b = e.target.closest('button'); if (b) { state.model = b.dataset.v; render(); } };
+  $('segPrice').onclick = e => { const b = e.target.closest('button'); if (b) { state.priceMode = b.dataset.v; render(); } };
+  $('period').onchange = e => { state.period = e.target.value; state.estPay = null; render(); };
+  $('commission').onchange = e => { state.commission = e.target.value; render(); if (state.commission === 'custom') $('customRate').focus(); };
+  $('customRate').oninput = e => { state.customRate = e.target.value; render(); };
+  $('regional').onchange = e => { state.regional = e.target.checked; render(); };
+  $('tier').onchange = e => { state.tier = e.target.value; render(); };
+  const stepTier = d => {
+    const t = Pricing.tiers(state.model), i = t.indexOf(state.tier) + d;
+    if (i >= 0 && i < t.length) { state.tier = t[i]; render(); }
+  };
+  $('tierPrev').onclick = () => stepTier(-1);
+  $('tierNext').onclick = () => stepTier(1);
+  $('tierChips').onclick = e => { const c = e.target.closest('[data-tier]'); if (c) { state.tier = c.dataset.tier; render(); } };
+  $('customAmount').oninput = e => { state.customAmount = e.target.value; render(); };
+  $('customCurrency').onchange = e => { state.customCurrency = e.target.value; render(); };
+  $('q').oninput = e => { state.q = e.target.value; render(); };
+  $('region').onchange = e => { state.region = e.target.value; render(); };
+  $('fDiff').onchange = e => { state.fDiff = e.target.checked; render(); };
+  $('fTax').onchange = e => { state.fTax = e.target.checked; render(); };
+  $('sortSel').onchange = e => { const [k, d] = e.target.value.split(':'); state.sort = { k, dir: Number(d) }; render(); };
+  document.querySelector('#grid thead').onclick = e => {
+    const th = e.target.closest('th[data-k]');
+    if (!th) return;
+    const k = th.dataset.k;
+    state.sort = state.sort.k === k ? { k, dir: -state.sort.dir } : { k, dir: (k === 'name' || k === 'currency') ? 1 : -1 };
+    render();
+  };
+  $('rows').onclick = e => {
+    if (e.target.closest('.pick')) return;
+    const tr = e.target.closest('tr[data-a3]');
+    if (tr) openSheet(tr.dataset.a3);
+  };
+  $('rows').onkeydown = e => {
+    if (e.key === 'Enter' && e.target.matches('tr[data-a3]')) openSheet(e.target.dataset.a3);
+  };
+  $('rows').onchange = e => {
+    const a3 = e.target.dataset.pick;
+    if (!a3) return;
+    state.compare = e.target.checked ? state.compare.concat(a3) : state.compare.filter(x => x !== a3);
+    renderCompare();
+    save();
+  };
+  $('cmpChips').onclick = e => { const b = e.target.closest('[data-rm]'); if (b) { state.compare = state.compare.filter(x => x !== b.dataset.rm); render(); } };
+  $('cmpAdd').onchange = e => { if (e.target.value) { state.compare.push(e.target.value); render(); } };
+  $('cmpSort').onchange = e => { state.cmpSort = e.target.value; render(); };
+  $('estSf').onchange = e => { state.estSf = e.target.value; render(); };
+  $('estPay').oninput = e => { state.estPay = e.target.value === '' ? null : Math.max(0, Number(e.target.value) || 0); render(); };
+  $('estRef').oninput = e => { state.estRef = e.target.value; render(); };
+  $('btnCsv').onclick = () => download(fileStem() + '.csv', toDelimited(VISIBLE, ','), 'text/csv;charset=utf-8');
+  $('btnCopy').onclick = () => copyText(toDelimited(VISIBLE, '\t'), `Copied ${VISIBLE.length} rows`);
+  $('btnJson').onclick = () => download(fileStem() + '.json', JSON.stringify({
+    generatedAt: new Date().toISOString(),
+    pricingModel: state.model,
+    price: state.priceMode === 'tier' ? { type: 'appleTier', usdReference: Number(state.tier) } : { type: 'custom', amount: Number(state.customAmount), currency: state.customCurrency },
+    commission: { selection: state.commission, regionalRates: state.regional && state.commission !== 'custom' },
+    dataUpdated: { applePricing: DATA.prices.meta && DATA.prices.meta.updated, tax: DATA.tax.updated, fx: fx.date, fxLive: fx.live },
+    rows: exportRecords(VISIBLE),
+  }, null, 2), 'application/json');
+  $('scrim').onclick = closeSheet;
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && state.open) closeSheet(); });
+  $('themeBtn').onclick = () => {
+    const cur = document.documentElement.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    const next = cur === 'dark' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = next;
+    store.set('asnp.theme', next);
+  };
+}
+
+/* ============================================================
+   9. FX (optional USD comparison only)
+   ============================================================ */
+function loadFx() {
+  if (!window.fetch) return;
+  fetch('https://open.er-api.com/v6/latest/USD')
+    .then(r => r.json())
+    .then(j => {
+      if (!j || j.result !== 'success' || !j.rates) return;
+      fx = { rates: Object.assign({}, fx.rates, j.rates), date: new Date(j.time_last_update_unix * 1000).toISOString().slice(0, 10), live: true };
+      render();
+      renderFx();
+    })
+    .catch(() => { /* offline: keep the embedded snapshot */ });
+}
+
+/* ============================================================
+   10. INIT
+   ============================================================ */
+(function init() {
+  const theme = store.get('asnp.theme', null);
+  if (theme) document.documentElement.dataset.theme = theme;
+  const curs = [...new Set(DATA.storefronts.map(s => s.currency))].sort();
+  $('customCurrency').innerHTML = curs.map(c => `<option>${c}</option>`).join('');
+  sanitize();
+  $('customCurrency').value = state.customCurrency;
+  $('customAmount').value = state.customAmount;
+  $('customRate').value = state.customRate;
+  $('q').value = state.q;
+  $('region').value = state.region;
+  $('fDiff').checked = state.fDiff;
+  $('fTax').checked = state.fTax;
+  bind();
+  renderData();
+  render();
+  loadFx();
+})();
+</script>
+</body>
+</html>
