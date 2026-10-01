@@ -43,13 +43,15 @@ export ASC_PRIVATE_KEY_PATH="$HOME/.appstoreconnect/private_keys/AuthKey_XXXXXXX
 # quick check first: two price points, nothing written
 node scripts/fetch-apple-prices.mjs --only=9.99,39.99 --dry-run
 
-# full run: about 1,700 requests, 10 to 20 minutes
-node scripts/fetch-apple-prices.mjs
+# full run: about 1,500 requests, 15 to 25 minutes
+node scripts/fetch-apple-prices.mjs --update-tax
 ```
 
 The full run rewrites the data blocks inside `index.html` (the file grows to roughly 2 MB) and prints how many price points were loaded. Reload the page afterwards.
 
-Responses are cached in `.asc-cache/`, so an interrupted run continues where it stopped. Delete that folder before a later refresh, otherwise the cached prices are reused.
+Responses are cached in `.asc-cache/`, so an interrupted run continues where it stopped. If some price points fail, the script keeps going, writes what it has, and tells you how many are missing; run the same command again to fetch only those. Delete the cache folder before a later refresh, otherwise the cached prices are reused.
+
+`--update-tax` matters because a few tax rules depend on your own developer account. Vietnam is the known case: Apple deducts a different amount for individual and organization developers, so the rule shipped in the page may not match your account until the script refits it from your proceeds.
 
 ### Options
 
@@ -61,18 +63,19 @@ Responses are cached in `.asc-cache/`, so an interrupted run continues where it 
 | `--app=ID`, `--subscription=ID`, `--iap=ID` | Use these products instead of auto-discovery |
 | `--update-tax` | Rewrite tax rules that no longer match the proceeds Apple reports |
 | `--dry-run` | Fetch and report, but leave `index.html` untouched |
-| `--out=path`, `--cache=dir`, `--concurrency=3` | Output file, cache folder, parallel requests |
+| `--out=path`, `--cache=dir`, `--concurrency=2` | Output file, cache folder, parallel requests |
 
 At the end the script compares the page's tax rules with the proceeds Apple just reported and lists every storefront that no longer matches. That list is how you find out about a tax change. Re-run with `--update-tax` to rewrite the simple cases, or edit the `data-tax` block by hand.
 
 ### If it fails
 
 - **401**: wrong Issuer ID, Key ID or key file, or the key was revoked.
-- **403**: the key's role cannot read pricing. Use App Manager or Admin.
+- **403 on the first requests**: the key's role cannot read pricing. Use App Manager or Admin.
+- **403 partway through a run** ("The API key in use does not allow this request" after hundreds of successful requests): Apple is throttling the key. The script retries each request for about two minutes, skips what still fails and stops asking after six failures in a row. Wait a few minutes and run the same command again, with `--concurrency=1` if it repeats.
 - **404 on a price-point request**: pass the product explicitly with `--subscription=ID` or `--iap=ID` (the numeric Apple ID shown in App Store Connect).
 - **429**: rate limit. The script waits and retries by itself; lower `--concurrency` if it keeps happening.
 
-The script was tested against recorded API responses, not against a live account, so the first real run is the real test. Start with the `--dry-run` command above.
+Start with the `--dry-run` command above; it makes about 16 requests and writes nothing.
 
 ## 3. Publish on GitHub Pages
 

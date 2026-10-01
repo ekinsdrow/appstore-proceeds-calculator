@@ -17,7 +17,7 @@
  *   --app=ID --subscription=ID --iap=ID   use these products instead of auto-discovery
  *   --update-tax                    rewrite tax rules that no longer match Apple's proceeds
  *   --out=path/to/index.html        file to update (default ../index.html)
- *   --concurrency=3                 parallel requests
+ *   --concurrency=2                 parallel requests
  *   --cache=dir                     where to keep downloaded responses (default .asc-cache)
  *   --dry-run                       fetch and report, but do not write index.html
  *
@@ -43,7 +43,7 @@ const args = Object.fromEntries(process.argv.slice(2).map(a => {
 const OUT = path.resolve(args.out || path.join(ROOT, 'index.html'));
 const CACHE = path.resolve(args.cache || path.join(ROOT, '.asc-cache'));
 const MODELS = args.model === 'subscription' ? ['subscription'] : args.model === 'iap' ? ['iap'] : ['iap', 'subscription'];
-const CONCURRENCY = Math.max(1, Number(args.concurrency) || 3);
+const CONCURRENCY = Math.max(1, Number(args.concurrency) || 2);
 
 function fail(msg) {
   console.error('\n' + msg + '\n');
@@ -64,11 +64,11 @@ if (!ISSUER || !KEY_ID || !PRIVATE_KEY) {
 
 let token = null, tokenAt = 0;
 function jwt() {
-  if (token && Date.now() - tokenAt < 14 * 60e3) return token;
+  if (token && Date.now() - tokenAt < 10 * 60e3) return token;
   const b64 = o => Buffer.from(JSON.stringify(o)).toString('base64url');
   const iat = Math.floor(Date.now() / 1000);
   const head = b64({ alg: 'ES256', kid: KEY_ID, typ: 'JWT' });
-  const body = b64({ iss: ISSUER, iat, exp: iat + 19 * 60, aud: 'appstoreconnect-v1' });
+  const body = b64({ iss: ISSUER, iat, exp: iat + 15 * 60, aud: 'appstoreconnect-v1' });
   const sig = crypto.sign('sha256', Buffer.from(`${head}.${body}`), { key: PRIVATE_KEY, dsaEncoding: 'ieee-p1363' });
   token = `${head}.${body}.${sig.toString('base64url')}`;
   tokenAt = Date.now();
@@ -76,8 +76,9 @@ function jwt() {
 }
 
 /* ---------------------------------------------------------------- http */
-const sleep = ms => new Promise(r => setTimeout(r, ms));
-let requests = 0;
+const WAIT_SCALE = Number(process.env.ASC_RETRY_SCALE || 1);
+const sleep = ms => new Promise(r => setTimeout(r, ms * WAIT_SCALE));
+let requests = 0, rateLimit = '';
 async function get(url) {
   const full = url.startsWith('http') ? url : API + url;
   for (let attempt = 0; ; attempt++) {
@@ -90,15 +91,26 @@ async function get(url) {
       continue;
     }
     requests++;
+    rateLimit = res.headers.get('x-rate-limit') || rateLimit;
     if (res.ok) return res.json();
     const text = await res.text();
     if (res.status === 401 && attempt < 2) { token = null; continue; }
+    /* Apple answers some valid requests with a 403 when it is throttling a key,
+       so a 403 gets a few slow retries with a fresh token before it counts. */
+    if (res.status === 403 && attempt < 4) {
+      token = null;
+      await sleep([5e3, 15e3, 30e3, 60e3][attempt]);
+      continue;
+    }
     if ((res.status === 429 || res.status >= 500) && attempt < 6) {
       await sleep(Math.min(60e3, 2000 * 2 ** attempt));
       continue;
     }
-    const err = new Error(`GET ${full} failed with ${res.status}: ${text.slice(0, 400)}`);
+    let detail = text.slice(0, 300);
+    try { const e = JSON.parse(text).errors[0]; detail = `${e.code}: ${e.detail || e.title}`; } catch (e) { /* not JSON */ }
+    const err = new Error(`${res.status} ${detail}${rateLimit ? ` [rate limit ${rateLimit}]` : ''}`);
     err.status = res.status;
+    err.url = full;
     throw err;
   }
 }
@@ -190,21 +202,31 @@ async function fetchLadder(kind, ladder, productId) {
   let points = (await getAll(ladder.points(productId))).data
     .map(p => ({ id: p.id, tier: tierKey(p.attributes.customerPrice), attrs: p.attributes }))
     .sort((a, b) => Number(a.tier) - Number(b.tier));
-  const allTiers = [...new Set(points.map(p => p.tier))];
+  const allTiers = [...new Set(points.map(p => p.tier))].filter(t => Number(t) > 0);
   if (args.only) { const want = new Set(String(args.only).split(',').map(tierKey)); points = points.filter(p => want.has(p.tier)); }
   if (args['max-usd']) points = points.filter(p => Number(p.tier) <= Number(args['max-usd']));
+  points = points.filter(p => Number(p.tier) > 0);
   console.log(`${kind}: ${allTiers.length} US price points, fetching equalizations for ${points.length}`);
 
   const dir = path.join(CACHE, kind);
   fs.mkdirSync(dir, { recursive: true });
   const rows = {}; // tier -> { a3: {price, proceeds, proceedsYear2} }
-  let done = 0;
+  const failed = []; // { tier, error }
+  let done = 0, streak = 0, stop = false;
   await pool(points, async pt => {
+    if (stop) return;
     const file = path.join(dir, `${pt.tier}.json`);
     let data;
     if (fs.existsSync(file)) data = JSON.parse(fs.readFileSync(file, 'utf8'));
     else {
-      data = (await getAll(ladder.equalizations(pt.id))).data.map(x => ({ t: territoryOf(x), ...x.attributes }));
+      try {
+        data = (await getAll(ladder.equalizations(pt.id))).data.map(x => ({ t: territoryOf(x), ...x.attributes }));
+      } catch (e) {
+        failed.push({ tier: pt.tier, error: e.message });
+        if (++streak >= 6) stop = true;   // Apple is refusing everything: stop asking
+        return;
+      }
+      streak = 0;
       fs.writeFileSync(file, JSON.stringify(data));
     }
     const map = { [BASE]: { price: toNum(pt.attrs.customerPrice), proceeds: toNum(pt.attrs.proceeds), proceedsYear2: toNum(pt.attrs.proceedsYear2) } };
@@ -213,7 +235,12 @@ async function fetchLadder(kind, ladder, productId) {
     if (++done % 25 === 0 || done === points.length) process.stdout.write(`\r${kind}: ${done}/${points.length} price points`);
   });
   process.stdout.write('\n');
-  return { allTiers, rows };
+  const skipped = points.length - done - failed.length;
+  if (failed.length) {
+    console.warn(`${kind}: ${failed.length} price points failed` + (skipped ? `, ${skipped} not attempted after repeated failures` : '') + '.');
+    console.warn(`  First error ($${failed[0].tier}): ${failed[0].error}`);
+  }
+  return { allTiers, rows, missing: failed.length + skipped };
 }
 
 /* ---------------------------------------------------------------- tax validation */
@@ -236,27 +263,37 @@ function validateTax(Engine, DATA, ladders) {
         const reg = regionalOf(a3);
         const candidates = [globalRates[field]].concat(reg ? [reg.standard, reg.reduced] : []);
         const ok = candidates.some(rate => Math.abs(Engine.compute(sf, v.price, rate).developerProceeds - v[field]) <= unit * 1.001);
-        const r = report[a3] || (report[a3] = { checked: 0, bad: 0, implied: [], regional: !!reg });
+        const r = report[a3] || (report[a3] = { checked: 0, bad: 0, implied: [], obs: [], regional: !!reg });
         r.checked++;
+        r.obs.push({ price: v.price, want: v[field], rate: globalRates[field] });
         if (!ok) { r.bad++; r.implied.push({ price: v.price, t: v.price * (1 - globalRates[field]) / v[field] - 1 }); }
       }
     }
   }
   return report;
 }
-function refit(tax, report) {
-  const changed = [];
+function refit(Engine, DATA, report) {
+  const tax = DATA.tax, changed = [];
+  const SF = Object.fromEntries(DATA.storefronts.map(s => [s.a3, s]));
   for (const [a3, r] of Object.entries(report)) {
-    const rule = tax.rules[a3];
+    const rule = tax.rules[a3], sf = SF[a3];
     if (!r.bad || r.bad < r.checked * 0.5 || !rule || rule.d || r.regional) continue;
-    const best = r.implied.sort((a, b) => b.price - a.price).slice(0, 5).map(x => x.t).sort((a, b) => a - b);
-    const t = Math.round(best[Math.floor(best.length / 2)] * 1e4) / 1e4;
-    const before = rule.t || 0;
-    if (t > 0.0005) Object.assign(rule, { mode: 'included', t, label: rule.label || 'Taxes' });
-    else if (rule.mode === 'included') Object.assign(rule, { mode: 'none', t: 0 });
-    delete rule.round30;
-    rule.note = `Effective rate refit from the proceeds App Store Connect reported on ${TODAY}.`;
-    changed.push(`${a3}: ${(before * 100).toFixed(2)}% -> ${(t * 100).toFixed(2)}%`);
+    const top = r.implied.sort((a, b) => b.price - a.price).slice(0, 5).map(x => x.t).sort((a, b) => a - b);
+    const raw = top[Math.floor(top.length / 2)];
+    const before = { ...rule };
+    /* prefer a round rate, but only if it reproduces Apple's numbers at least as well */
+    const misses = t => {
+      Object.assign(rule, t > 0.0005 ? { mode: 'included', t } : { mode: 'none', t: 0 });
+      delete rule.round30;
+      const unit = Math.pow(10, -sf.decimals) * 1.001;
+      return r.obs.filter(o => Math.abs(Engine.compute(sf, o.price, o.rate).developerProceeds - o.want) > unit).length;
+    };
+    const candidates = [Math.round(raw * 2000) / 2000, Math.round(raw * 1e4) / 1e4, Math.round(raw * 1e6) / 1e6];
+    const t = candidates.map(c => [c, misses(c)]).sort((a, b) => a[1] - b[1])[0][0];
+    const left = misses(t);
+    if (rule.mode === 'included') rule.label = before.label || 'Taxes'; else delete rule.label;
+    rule.note = `Effective rate refit from the proceeds App Store Connect reported for your account on ${TODAY}.`;
+    changed.push(`${a3}: ${((before.t || 0) * 100).toFixed(2)}% -> ${(t * 100).toFixed(2)}%` + (left ? ` (${left}/${r.checked} values still differ)` : ''));
   }
   if (changed.length) tax.updated = TODAY;
   return changed;
@@ -337,7 +374,7 @@ for (const [a3, r] of off) {
 }
 let taxChanged = [];
 if (args['update-tax']) {
-  taxChanged = refit(DATA.tax, report);
+  taxChanged = refit(Engine, DATA, report);
   console.log(taxChanged.length ? `Updated tax rules:\n  ${taxChanged.join('\n  ')}` : 'No tax rules needed updating.');
 } else if (off.length) {
   console.log('  Re-run with --update-tax to rewrite simple rules from these proceeds, or edit #data-tax by hand.');
@@ -354,4 +391,9 @@ if (args['dry-run']) {
   console.log(`\nWrote ${path.relative(process.cwd(), OUT)} (${(html.length / 1e6).toFixed(2)} MB, ${requests} requests).`);
   console.log(`In-App Purchase: ${prices.iap.tiers.length} price points, ${n('iap')} with localized prices.`);
   console.log(`Subscription: ${prices.subscription.tiers.length} price points, ${n('subscription')} with localized prices.`);
+}
+const missing = fetched.reduce((sum, f) => sum + f.missing, 0);
+if (missing) {
+  console.warn(`\n${missing} price points are still missing. Everything fetched so far is cached, so run the same command again to get only the missing ones. If the same ones keep failing, wait a few minutes or use --concurrency=1.`);
+  process.exitCode = 2;
 }
