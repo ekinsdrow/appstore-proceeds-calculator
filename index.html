@@ -177,6 +177,7 @@ td small{color:var(--faint);margin-left:6px;font-size:11.5px}
 .box .v{font-size:20px;font-weight:700;letter-spacing:-.02em;margin-top:4px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
 .box .s{font-size:12px;color:var(--faint);margin-top:2px}
 .box.pos .v{color:var(--pos)}
+.rev{display:grid;grid-template-columns:1.2fr 1fr 1.2fr .8fr;gap:14px;margin-top:14px}
 
 /* prose */
 .prose{color:var(--muted);font-size:13.5px;line-height:1.6;max-width:92ch}
@@ -225,6 +226,7 @@ footer{color:var(--faint);font-size:12px;margin-top:24px;text-align:center;text-
   .summary{grid-template-columns:repeat(4,1fr)}
   .stat.hero{grid-column:1/-1}
   .two{grid-template-columns:1fr}
+  .rev{grid-template-columns:1fr 1fr}
 }
 @media (max-width:760px){
   .wrap{padding:14px 16px 56px}
@@ -255,7 +257,7 @@ footer{color:var(--faint);font-size:12px;margin-top:24px;text-align:center;text-
   #grid td[data-label]::before{content:attr(data-label);display:block;font-size:11px;color:var(--faint);margin-bottom:1px}
   .cur-m{display:inline;color:var(--faint);font-weight:500;margin-left:6px;font-size:12px}
   #grid td.r{font-size:14px}
-  .est,.est-out{grid-template-columns:1fr}
+  .est,.est-out,.rev{grid-template-columns:1fr}
   .card-h{padding:14px 14px 0}
   .card-b{padding:14px}
   .scroll-x{margin:14px -14px -14px}
@@ -435,6 +437,34 @@ footer{color:var(--faint);font-size:12px;margin-top:24px;text-align:center;text-
     </div>
   </section>
 
+  <!-- REVENUE TO PROCEEDS -->
+  <section class="card" id="revCard" aria-label="Revenue to proceeds">
+    <div class="card-h"><h2>Revenue to proceeds</h2></div>
+    <div class="card-b">
+      <p class="hint" style="margin-top:0">Enter a total revenue figure, such as last month's sales in one country, and see what Apple pays out after tax and commission.</p>
+      <div class="rev">
+        <div>
+          <label class="lbl" for="revAmt">Total revenue</label>
+          <div class="row">
+            <input class="field num" id="revAmt" type="number" min="0" step="any" inputmode="decimal" aria-label="Total revenue amount">
+            <select class="field" id="revCur" aria-label="Revenue currency" style="max-width:100px"></select>
+          </div>
+        </div>
+        <div><label class="lbl" for="revSf">Sold in</label><select class="field" id="revSf"></select></div>
+        <div>
+          <label class="lbl" for="revIncl">Revenue figure is</label>
+          <select class="field" id="revIncl">
+            <option value="1">What customers paid (tax included)</option>
+            <option value="0">Already excluding tax</option>
+          </select>
+        </div>
+        <div><label class="lbl" for="revOut">Show proceeds in</label><select class="field" id="revOut"></select></div>
+      </div>
+      <div class="est-out" id="revOutBox"></div>
+      <p class="hint" id="revHint"></p>
+    </div>
+  </section>
+
   <!-- ANNUAL ESTIMATE -->
   <section class="card" id="estCard" aria-label="Estimated annual developer revenue">
     <div class="card-h"><h2>Estimated annual developer revenue <span class="tag warn">Estimate</span></h2></div>
@@ -607,6 +637,7 @@ const state = Object.assign({
   sort: { k: 'name', dir: 1 },
   compare: ['USA', 'DEU', 'SWE', 'FRA', 'GBR', 'CAN', 'AUS'], cmpSort: 'high',
   estSf: 'USA', estPay: null, estRef: 0,
+  revAmt: 10000, revCur: 'USD', revSf: 'USA', revIncl: true, revOut: 'USD',
   overrides: {},
 }, saved);
 state.open = null;
@@ -624,6 +655,7 @@ function sanitize() {
   }
   state.compare = state.compare.filter(a => SF[a]);
   if (!SF[state.estSf]) state.estSf = BASE;
+  if (!SF[state.revSf]) state.revSf = BASE;
   if (!DATA.storefronts.some(s => s.currency === state.customCurrency)) state.customCurrency = 'USD';
 }
 
@@ -648,6 +680,13 @@ function toUSD(v, cur) {
   const r = fx.rates[cur];
   return v == null || !r ? null : v / r;
 }
+function convert(v, from, to) {
+  if (v == null) return null;
+  if (from === to) return v;
+  const u = toUSD(v, from), r = fx.rates[to];
+  return u == null || !r ? null : u * r;
+}
+const curDecimals = cur => { const s = DATA.storefronts.find(x => x.currency === cur); return s ? s.decimals : 2; };
 function buildRows() {
   const s = sel();
   return DATA.storefronts.map(sf => {
@@ -746,6 +785,7 @@ function render() {
   renderNotices();
   renderTable();
   renderCompare();
+  renderRevenue();
   renderEstimate();
   if (state.open) renderSheet();
   save();
@@ -873,6 +913,55 @@ function renderCompare() {
 <td class="r you">${c ? lm(r, c.developerProceeds) : '—'}</td>
 <td class="r">${usd(r.usd)}</td></tr>`;
   }).join('') : '<tr><td colspan="6" class="empty">No countries selected.</td></tr>';
+}
+
+/* Total revenue -> proceeds. The total is treated like one large purchase:
+   same tax rule and commission as a single sale in that storefront. */
+function renderRevenue() {
+  const curs = [...new Set(DATA.storefronts.map(s => s.currency).concat(Object.keys(fx.rates)))].filter(c => fx.rates[c] || DATA.storefronts.some(s => s.currency === c)).sort();
+  const sig = curs.join();
+  ['revCur', 'revOut'].forEach(id => {
+    const el = $(id);
+    if (el.dataset.sig !== sig) { el.innerHTML = curs.map(c => `<option>${c}</option>`).join(''); el.dataset.sig = sig; }
+  });
+  const rs = $('revSf');
+  if (!rs.options.length) rs.innerHTML = DATA.storefronts.map(s => `<option value="${s.a3}">${esc(s.name)} (${s.currency})</option>`).join('');
+  rs.value = state.revSf;
+  $('revCur').value = state.revCur;
+  $('revOut').value = state.revOut;
+  $('revIncl').value = state.revIncl ? '1' : '0';
+  if (document.activeElement !== $('revAmt')) $('revAmt').value = state.revAmt == null ? '' : state.revAmt;
+
+  const sf = SF[state.revSf];
+  const rule = Engine.rule(sf.a3);
+  const rate = Engine.commission(sf.a3, sel()).rate;
+  const t = rule.mode === 'included' ? rule.t : 0;
+  const amt = Math.max(0, Number(state.revAmt) || 0);
+  const local = convert(amt, state.revCur, sf.currency);
+  const L = v => money(v, sf.currency, sf.decimals);
+  const O = v => money(v, state.revOut, curDecimals(state.revOut));
+  const box = (k, v, s, cls = '') => `<div class="box ${cls}"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`;
+  if (local == null) {
+    $('revOutBox').innerHTML = box('Tax removed', '—', '') + box('Apple commission', '—', '') + box('You receive', '—', `No exchange rate for ${esc(state.revCur)}`, 'pos');
+    $('revHint').textContent = '';
+    return;
+  }
+  // When the figure already excludes tax, gross it up so compute() removes exactly that tax again.
+  const c = Engine.compute(sf, state.revIncl ? local : local * (1 + t), rate);
+  const taxCut = state.revIncl ? c.taxAmount : 0;
+  const fee = c.appleCommission + c.otherDeductions;
+  const out = convert(c.developerProceeds, sf.currency, state.revOut);
+  const sameCur = sf.currency === state.revOut;
+  const share = local > 0 ? c.developerProceeds / local : 0;
+  $('revOutBox').innerHTML =
+    box(state.revIncl && rule.mode === 'included' ? `Tax removed (${esc(taxLabel(rule))})` : 'Tax removed', L(taxCut),
+      !state.revIncl ? 'Revenue already excludes tax' : rule.mode === 'checkout' ? 'Sales tax is added on top at checkout' : `Tax-exclusive: ${L(c.taxExclusivePrice)}`) +
+    box(`Apple commission (${pct(rate)})`, L(fee), c.otherDeductions ? `Includes ${L(c.otherDeductions)} commission-linked levy` : `On ${L(c.taxExclusivePrice)}`) +
+    box('You receive', O(out), (sameCur ? '' : `${L(c.developerProceeds)} · `) + `${pct(share, 1)} of the revenue entered`, 'pos');
+  const fxUsed = state.revCur !== sf.currency || !sameCur;
+  $('revHint').textContent = `Uses ${sf.name}'s tax rule and the commission selected above.` +
+    (state.revCur !== sf.currency ? ` ${money(amt, state.revCur, curDecimals(state.revCur))} was converted to ${L(local)} first.` : '') +
+    (fxUsed ? ` Currency conversion uses ${fx.live ? 'live' : 'snapshot'} market rates (${fx.date || 'unknown date'}), not Apple's settlement rate, so the payout can differ slightly.` : '');
 }
 
 function renderEstimate() {
@@ -1151,6 +1240,11 @@ function bind() {
   $('cmpChips').onclick = e => { const b = e.target.closest('[data-rm]'); if (b) { state.compare = state.compare.filter(x => x !== b.dataset.rm); render(); } };
   $('cmpAdd').onchange = e => { if (e.target.value) { state.compare.push(e.target.value); render(); } };
   $('cmpSort').onchange = e => { state.cmpSort = e.target.value; render(); };
+  $('revAmt').oninput = e => { state.revAmt = e.target.value === '' ? null : e.target.value; render(); };
+  $('revCur').onchange = e => { state.revCur = e.target.value; render(); };
+  $('revSf').onchange = e => { state.revSf = e.target.value; state.revCur = SF[state.revSf].currency; render(); };
+  $('revIncl').onchange = e => { state.revIncl = e.target.value === '1'; render(); };
+  $('revOut').onchange = e => { state.revOut = e.target.value; render(); };
   $('estSf').onchange = e => { state.estSf = e.target.value; render(); };
   $('estPay').oninput = e => { state.estPay = e.target.value === '' ? null : Math.max(0, Number(e.target.value) || 0); render(); };
   $('estRef').oninput = e => { state.estRef = e.target.value; render(); };

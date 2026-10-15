@@ -128,6 +128,8 @@ Apple commission     = tax-exclusive amount × commission rate
 developer proceeds   = tax-exclusive amount × (1 − commission rate)
 ```
 
+The **Revenue to proceeds** card applies the same calculation to a total. Enter an amount in any currency, the country it was sold in, and the currency you want the result in. The total is first converted to the storefront's currency, then the tax and the commission are removed, and the proceeds are converted to the output currency. Both conversions use market exchange rates. If your figure already excludes tax, choose "Already excluding tax" and only the commission is deducted.
+
 A few storefronts (United Kingdom, Italy, Spain, Kenya, Uruguay, China mainland) carry an extra levy tied to Apple's commission. In the United States and Canada sales tax is added at checkout, so nothing is removed from the price.
 
 The tax rules were derived from the per-unit proceeds Apple's API reported on 2026-06-17 and reproduce all 2,284 values in that snapshot. They were then updated with Apple's tax announcement of 2026-08-27 (Morocco, Republic of the Congo, Tanzania).
